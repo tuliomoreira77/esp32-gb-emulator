@@ -1,0 +1,45 @@
+
+enum U8Reg {
+    A,
+    B,
+    C,
+    D,
+    E,
+    H,
+    L,
+    F,
+    HL,
+    D8,
+    NZ,
+    NC,
+    Z,
+    CR,
+    BC,
+    DE,
+    AF,
+    D16,
+    SP,
+    HLI,
+    HLD,
+    SPE,
+    V0,
+    V1,
+    V2,
+    V3,
+    V4,
+    V5,
+    V6,
+    V7,
+    X
+};
+
+enum BitEnum {
+    BIT0,
+    BIT1,
+    BIT2,
+    BIT3,
+    BIT4,
+    BIT5,
+    BIT6,
+    BIT7
+};
