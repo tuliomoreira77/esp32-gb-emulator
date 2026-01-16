@@ -1,5 +1,4 @@
-#pragma once
-
+#include <Arduino.h>
 #include "registers.h"
 
 
@@ -111,6 +110,8 @@ uint8_t Registers::get8(U8Reg id) {
     if (id == U8Reg::H) return H;
     if (id == U8Reg::L) return L;
     if (id == U8Reg::F) return getF();
+
+    return 0x00;
 }
 
 void Registers::set8(U8Reg id, uint8_t v) {
@@ -126,16 +127,18 @@ void Registers::set8(U8Reg id, uint8_t v) {
 
 
 uint16_t Registers::get16(U8Reg id) {
+    if (id == U8Reg::HL) return getHL();
     if (id == U8Reg::BC) return getBC();
     if (id == U8Reg::DE) return getDE();
-    if (id == U8Reg::HL) return getHL();
     if (id == U8Reg::AF) return getAF();
+
+    return 0x0000;
 }
 
 void Registers::set16(U8Reg id, uint16_t v) {
+    if (id == U8Reg::HL) { setHL(v); return; }
     if (id == U8Reg::BC) { setBC(v); return; }
     if (id == U8Reg::DE) { setDE(v); return; }
-    if (id == U8Reg::HL) { setHL(v); return; }
     if (id == U8Reg::AF) { setAF(v); return; }
 }
 

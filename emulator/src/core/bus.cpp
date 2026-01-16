@@ -2,39 +2,60 @@
 
 MemoryBus::MemoryBus(Joypad* jp) : joypad(jp)
 {
-    memory.fill(0x00);
-    extMemory.fill(0x00);
+
+}
+
+void MemoryBus::insertCartridge(uint8_t* rom) {
+    this->romMemory = rom;
 }
 
 uint8_t MemoryBus::readByte(uint16_t addr) {
     if (addr >= EXTERNAL_RAM_BEGIN && addr <= EXTERNAL_RAM_END)
-        return extMemory[addr];
+        return intMemory[addr];
 
     if (addr == JOYPAD_REG)
         return wireJoypad();
 
-    return memory[addr];
+    if (addr >= 0x8000) {
+        return intMemory[addr];
+    }
+
+    return romMemory[addr];
+}
+
+uint8_t* MemoryBus::fetchBlock(uint16_t addr) {
+    if (addr >= EXTERNAL_RAM_BEGIN && addr <= EXTERNAL_RAM_END)
+        return &intMemory[addr];
+    
+    if (addr >= 0x8000) {
+        return &intMemory[addr];
+    }
+
+    return &romMemory[addr];
+}
+
+uint8_t MemoryBus::readVRam(uint16_t addr) {
+    return intMemory[addr];
 }
 
 void MemoryBus::writeByte(uint16_t addr, uint8_t value) {
     if (addr >= 0x8000) {
-        if (addr == TIMER_DIV) {
-            memory[addr] = 0x00;
-            return;
-        }
-
         if (addr >= EXTERNAL_RAM_BEGIN && addr <= EXTERNAL_RAM_END) {
-            extMemory[addr] = value;
+            intMemory[addr] = value;
             return;
         }
 
-        if (addr == DMA)
+        if (addr == DMA) {
             dma(value);
+            return;
+        }
 
-//        if (addr == SC && (value == 0x81 || value == 0x80))
-//            wire_outcome_serial(value);
-
-        memory[addr] = value;
+        if (addr == TIMER_DIV) {
+            intMemory[addr] = 0x00;
+            return;
+        }
+        
+        intMemory[addr] = value;
         return;
     }
 
@@ -58,53 +79,53 @@ void MemoryBus::writeByte(uint16_t addr, uint8_t value) {
 }
 
 void MemoryBus::incTimerDiv() {
-    uint8_t v = memory[TIMER_DIV];
-    memory[TIMER_DIV] = (v + 1) & 0xFF;
+    uint8_t v = intMemory[TIMER_DIV];
+    intMemory[TIMER_DIV] = (v + 1) & 0xFF;
 }
 
 void MemoryBus::incTimerCounter() {
-    uint8_t v = memory[TIMER_COUNTER] + 1;
+    uint8_t v = intMemory[TIMER_COUNTER] + 1;
 
     if (v > 0xFF) {
         requestTimerInterrupt();
-        v = memory[TIMER_MODULO];
+        v = intMemory[TIMER_MODULO];
     }
 
-    memory[TIMER_COUNTER] = v;
+    intMemory[TIMER_COUNTER] = v;
 }
 
 void MemoryBus::requestTimerInterrupt() {
-    memory[INTERRUPT_FLAG] =
-        calculator.setBit(memory[INTERRUPT_FLAG], 2);
+    intMemory[INTERRUPT_FLAG] =
+        calculator.setBit(intMemory[INTERRUPT_FLAG], 2);
 }
 
 void MemoryBus::requestStatInterrupt() {
-    memory[INTERRUPT_FLAG] =
-        calculator.setBit(memory[INTERRUPT_FLAG], 1);
+    intMemory[INTERRUPT_FLAG] =
+        calculator.setBit(intMemory[INTERRUPT_FLAG], 1);
 }
 
 void MemoryBus::requestVblankInterrupt() {
-    memory[INTERRUPT_FLAG] =
-        calculator.setBit(memory[INTERRUPT_FLAG], 0);
+    intMemory[INTERRUPT_FLAG] =
+        calculator.setBit(intMemory[INTERRUPT_FLAG], 0);
 }
 
 void MemoryBus::requestJoypadInterrupt() {
-    memory[INTERRUPT_FLAG] =
-        calculator.setBit(memory[INTERRUPT_FLAG], 4);
+    intMemory[INTERRUPT_FLAG] =
+        calculator.setBit(intMemory[INTERRUPT_FLAG], 4);
 }
 
 void MemoryBus::requestSerialInterrupt() {
-    memory[INTERRUPT_FLAG] =
-        calculator.setBit(memory[INTERRUPT_FLAG], 3);
+    intMemory[INTERRUPT_FLAG] =
+        calculator.setBit(intMemory[INTERRUPT_FLAG], 3);
 }
 
 void MemoryBus::clearInterruptionRequest(int bit) {
-    memory[INTERRUPT_FLAG] =
-        calculator.setBit(memory[INTERRUPT_FLAG], bit);
+    intMemory[INTERRUPT_FLAG] =
+        calculator.resetBit(intMemory[INTERRUPT_FLAG], bit);
 }
 
 uint8_t MemoryBus::wireJoypad() {
-    uint8_t j = memory[JOYPAD_REG];
+    uint8_t j = intMemory[JOYPAD_REG];
     uint8_t selector = j & 0b00110000;
 
     uint8_t dpad = joypad->getDPad();
@@ -122,28 +143,11 @@ uint8_t MemoryBus::wireJoypad() {
     return j;
 }
 
-/*
-void wire_outcome_serial(uint8_t value) {
-    memory[SC] = value;
-    serial_port->send_byte(memory[SB]);
-}
-
-void wire_incoming_serial(uint8_t value) {
-    uint8_t sc = memory[SC];
-
-    if (calculator.verify_bit(sc, 7)) {
-        memory[SB] = value;
-        memory[SC] = calculator.reset_bit(sc, 7);
-        request_serial_interrupt();
-    }
-}
-*/
-
 void MemoryBus::dma(uint8_t addr) {
     uint16_t src = addr << 8;
     uint16_t dst = OAM_BEGIN;
 
     for (int i = 0; i < 160; i++)
-        memory[dst++] = readByte(src++);
+        intMemory[dst++] = readByte(src++);
 }
 

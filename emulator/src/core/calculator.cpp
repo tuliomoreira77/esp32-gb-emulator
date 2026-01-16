@@ -20,14 +20,14 @@ uint16_t Calculator::addAsSig(uint16_t u16, uint8_t u8) {
 }
 
 uint8_t Calculator::subU8(uint8_t a, uint8_t b) {
-    uint8_t result = a - b;
-    overflow = static_cast<int8_t>(result) < 0;
+    uint8_t result = static_cast<uint8_t>(a - b);
+    overflow = b > a;
     return result;
 }
 
 uint16_t Calculator::subU16(uint16_t a, uint16_t b) {
     uint16_t result = a - b;
-    overflow = static_cast<int16_t>(result) < 0;
+    overflow = b > a;
     return result;
 }
 
@@ -56,7 +56,7 @@ uint8_t Calculator::rotateLeft(uint8_t operand, uint8_t carry) {
     return (operand << 1) | (carry & 1);
 }
 
-uint8_t Calculator::rotateLeftCarry(uint8_t operand) {
+uint8_t Calculator::rotateLeftCarry(uint8_t operand, uint8_t carry) {
     uint8_t carryOut = (operand & 0x80) >> 7;
     overflow = carryOut;
     return (operand << 1) | carryOut;
@@ -68,25 +68,25 @@ uint8_t Calculator::rotateRight(uint8_t operand, uint8_t carry) {
     return (operand >> 1) | ((carry & 1) << 7);
 }
 
-uint8_t Calculator::rotateRightCarry(uint8_t operand) {
+uint8_t Calculator::rotateRightCarry(uint8_t operand, uint8_t carry) {
     uint8_t lowbit = operand & 1;
     overflow = lowbit;
     return (operand >> 1) | (lowbit << 7);
 }
 
-uint8_t Calculator::shiftRightLogical(uint8_t operand) {
+uint8_t Calculator::shiftRightLogical(uint8_t operand, uint8_t carry) {
     uint8_t lowbit = operand & 1;
     overflow = lowbit;
     return operand >> 1;
 }
 
-uint8_t Calculator::shiftRightA(uint8_t operand) {
+uint8_t Calculator::shiftRightA(uint8_t operand, uint8_t carry) {
     uint8_t lowbit = operand & 1;
     overflow = lowbit;
     return (operand >> 1) | (operand & 0x80);
 }
 
-uint8_t Calculator::shiftLeftA(uint8_t operand) {
+uint8_t Calculator::shiftLeftA(uint8_t operand, uint8_t carry) {
     uint8_t topbit = operand >> 7;
     overflow = topbit;
     return (operand << 1);
@@ -97,12 +97,12 @@ uint8_t Calculator::swapU8(uint8_t operand) {
 }
 
 uint8_t Calculator::resetBit(uint8_t operand, uint8_t bit) {
-    uint8_t mask = ~bitMapLookup[bit];
+    uint8_t mask = ~(0x01 << bit);
     return operand & mask;
 }
 
 uint8_t Calculator::setBit(uint8_t operand, uint8_t bit) {
-    uint8_t mask = bitMapLookup[bit];
+    uint8_t mask = (0x01 << bit);
     return operand | mask;
 }
 
@@ -117,7 +117,7 @@ bool Calculator::verifyBorrow(uint16_t a, uint16_t b, uint8_t bit) {
 }
 
 bool Calculator::verifyBit(uint8_t a, uint8_t bit) {
-    return a & bitMapLookup[bit];
+    return (a >> bit) & 0x01;
 }
 
 uint8_t Calculator::notU8(uint8_t a) {

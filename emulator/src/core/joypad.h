@@ -5,6 +5,8 @@
 
 class Joypad {
 
+public:
+    bool keyPressed = false;
 
 public:
     uint8_t getDPad();

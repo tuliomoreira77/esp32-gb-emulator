@@ -8,18 +8,6 @@ class Calculator {
 public:
     bool overflow = false;
 
-private:
-    static constexpr std::array<uint8_t, 8> bitMapLookup = {
-        0b00000001,
-        0b00000010,
-        0b00000100,
-        0b00001000,
-        0b00010000,
-        0b00100000,
-        0b01000000,
-        0b10000000
-    };
-
 public:
     uint8_t addU8(uint8_t a, uint8_t b);
     uint16_t addU16(uint16_t a, uint16_t b);
@@ -35,14 +23,12 @@ public:
     int8_t toSigned(uint8_t a);
 
     uint8_t rotateLeft(uint8_t operand, uint8_t carry);
-    uint8_t rotateLeftCarry(uint8_t operand);
-
+    uint8_t rotateLeftCarry(uint8_t operand, uint8_t carry);
     uint8_t rotateRight(uint8_t operand, uint8_t carry);
-    uint8_t rotateRightCarry(uint8_t operand);
-
-    uint8_t shiftRightLogical(uint8_t operand);
-    uint8_t shiftRightA(uint8_t operand);
-    uint8_t shiftLeftA(uint8_t operand);
+    uint8_t rotateRightCarry(uint8_t operand, uint8_t carry);
+    uint8_t shiftRightLogical(uint8_t operand, uint8_t carry);
+    uint8_t shiftRightA(uint8_t operand, uint8_t carry);
+    uint8_t shiftLeftA(uint8_t operand, uint8_t carry);
 
     uint8_t swapU8(uint8_t operand);
 

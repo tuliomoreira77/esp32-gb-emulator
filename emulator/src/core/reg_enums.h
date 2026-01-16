@@ -1,3 +1,8 @@
+#pragma once
+
+#ifndef REG_ENUM_H
+#define REG_ENUM_H
+
 
 enum U8Reg {
     A,
@@ -9,14 +14,14 @@ enum U8Reg {
     L,
     F,
     HL,
+    BC,
+    DE,
+    AF,
     D8,
     NZ,
     NC,
     Z,
     CR,
-    BC,
-    DE,
-    AF,
     D16,
     SP,
     HLI,
@@ -30,16 +35,15 @@ enum U8Reg {
     V5,
     V6,
     V7,
+    C_BIT0,
+    C_BIT1,
+    C_BIT2,
+    C_BIT3,
+    C_BIT4,
+    C_BIT5,
+    C_BIT6,
+    C_BIT7,
     X
 };
 
-enum BitEnum {
-    BIT0,
-    BIT1,
-    BIT2,
-    BIT3,
-    BIT4,
-    BIT5,
-    BIT6,
-    BIT7
-};
+#endif

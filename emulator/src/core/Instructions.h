@@ -2,59 +2,81 @@
 #define INSTRUCTIONS_H
 
 #include <map>
+#include "reg_enums.h"
 
-enum InstructionGroup {
-    NOP,
-    STOP,
-    ADD,
-    ADDC,
-    JP,
-    JPR,
-    AND,
-    CALL,
-    RET,
-    ADDHL,
-    ADDSP,
-    CCF,
-    CPL,
-    CP,
-    DEC,
-    INC,
-    DEC16,
-    INC16,
-    DI,
-    EI,
-    RETI,
-    HALT,
-    LD,
+enum InstructionGroup : uint8_t {
+    // ---------------- LOADS ----------------
+    LD = 0,
     LDP,
+    LDH,
     LD16,
     LDS,
-    LDH,
-    OR,
-    POP,
-    PUSH,
+
+    // ---------------- ALU 8-bit ----------------
+    ADD,
+    ADDC,
     SUB,
     SUBC,
+    AND,
+    OR,
     XOR,
+    CP,
+    DAA,
+
+    // ---------------- INC / DEC ----------------
+    INC,
+    DEC8,
+    INC16,
+    DEC16,
+
+    // ---------------- ALU 16-bit ----------------
+    ADDHL,
+    ADDSP,
+
+    // ---------------- FLOW CONTROL ----------------
+    JP,
+    JPR,
+    CALL,
+    RET,
+    RETI,
     RST,
+
+    // ---------------- STACK ----------------
+    PUSH,
+    POP,
+
+    // ---------------- ROTATE / SHIFT ----------------
     RL,
     RLC,
     RR,
     RRC,
     RLCA,
-    RRCA,
     RLA,
+    RRCA,
     RRA,
-    SRL,
-    SRA,
     SLA,
+    SRA,
+    SRL,
     SWAP,
-    DAA,
+
+    // ---------------- BIT OPS ----------------
     BIT,
-    RES,
     SET,
-    SCF
+    RES,
+
+    // ---------------- FLAGS ----------------
+    CCF,
+    SCF,
+    CPL,
+
+    // ---------------- CPU STATE ----------------
+    DI,
+    EI,
+    HALT,
+    NOP,
+    STOP,
+
+    INSTRUCTION_GROUP_COUNT
 };
 
 class InstructionDefinition {
@@ -63,27 +85,30 @@ class InstructionDefinition {
         InstructionGroup group;
         uint8_t operandsNumber;
         uint8_t cycles;
-        uint8_t def_1;
-        uint8_t def_2;
+        U8Reg def_1;
+        U8Reg def_2;
 
     public:
-        InstructionDefinition(InstructionGroup group, uint8_t def_1, uint8_t def_2, uint8_t operandsNumber, uint8_t cycles);
+        InstructionDefinition(InstructionGroup group, U8Reg def_1, U8Reg def_2, uint8_t operandsNumber, uint8_t cycles);
 
 };
 
 class Instruction {
-    public:
-        InstructionDefinition* definition = nullptr;
-        uint8_t operands[2];
+    private:
+        uint8_t operandsBuffer[2] = {0x00, 0x00};
 
     public:
-        Instruction(InstructionDefinition* definition, uint8_t operands[2]);
+        InstructionDefinition* definition = nullptr;
+        uint8_t* operands = operandsBuffer;
+
+    public:
+        Instruction();
 };
 
 class InstructionDict {
     private:
-        std::map<int, InstructionDefinition*> dict;
-        std::map<int, InstructionDefinition*> dictPrefix;
+        InstructionDefinition* dict[256];
+        InstructionDefinition* dictPrefix[256];
     public:
         InstructionDict();
         InstructionDefinition* get(u_int8_t opcode, bool prefix);

@@ -30,7 +30,6 @@ constexpr uint16_t TIMER_COUNTER = 0xFF05;
 constexpr uint16_t TIMER_MODULO  = 0xFF06;
 constexpr uint16_t TIMER_CONTROL = 0xFF07;
 
-constexpr uint16_t LCD_CONTROL = 0xFF40;
 constexpr uint16_t JOYPAD_REG  = 0xFF00;
 constexpr uint16_t DMA         = 0xFF46;
 
@@ -40,14 +39,41 @@ constexpr uint16_t SC = 0xFF02;
 constexpr uint16_t INTERRUPT_FLAG = 0xFF0F;
 constexpr uint16_t INTERRUPT_ENABLE_REGISTER = 0xFFFF;
 
-constexpr uint16_t LCD_STAT = 0xFF41;
+constexpr uint16_t TILE_MAP_1_START = 0x9800;
+constexpr uint16_t TILE_MAP_1_END   = 0x9BFF;
+constexpr uint16_t TILE_MAP_2_START = 0x9C00;
+constexpr uint16_t TILE_MAP_2_END   = 0x9FFF;
+
+constexpr uint16_t TILE_DATA_BLOCK_0 = 0x8000;
+constexpr uint16_t TILE_DATA_BLOCK_1 = 0x8800;
+constexpr uint16_t TILE_DATA_BLOCK_2 = 0x9000;
+
+constexpr uint16_t OAM_START = 0xFE00;
+
+constexpr uint16_t LCD_Y        = 0xFF44; // LY
+constexpr uint16_t LCD_YC       = 0xFF45; // LYC
+constexpr uint16_t LCD_STAT     = 0xFF41;
+constexpr uint16_t LCD_CONTROL  = 0xFF40;
+
+constexpr uint16_t BG_SCROLL_Y  = 0xFF42; // SCY
+constexpr uint16_t BG_SCROLL_X  = 0xFF43; // SCX
+constexpr uint16_t W_SCROLL_Y   = 0xFF4A; // WY
+constexpr uint16_t W_SCROLL_X   = 0xFF4B; // WX
+
+constexpr uint16_t BG_W_PALETTE = 0xFF47; // BGP
+constexpr uint16_t OBP0         = 0xFF48;
+constexpr uint16_t OBP1         = 0xFF49;
 
 
 class MemoryBus {
+public:
+    uint16_t debugReg = 0x0000;
+
 private:
     Calculator calculator;
-    std::array<uint8_t, 0x10000> memory{};
-    std::array<uint8_t, 0x2000> extMemory{};
+    uint8_t* romMemory;
+    uint8_t extMemory[0x2000];
+    uint8_t intMemory[0x10000];
     Joypad* joypad = nullptr;
 
 
@@ -58,7 +84,11 @@ private:
 public:
     MemoryBus(Joypad* jp);
 
+    void insertCartridge(uint8_t* rom);
+
     uint8_t readByte(uint16_t addr);
+    uint8_t* fetchBlock(uint16_t addr);
+    uint8_t readVRam(uint16_t addr);
 
     void writeByte(uint16_t addr, uint8_t value);
 
