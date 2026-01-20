@@ -591,8 +591,3 @@ InstructionDict::InstructionDict() {
     dictPrefix[0x2e] = new InstructionDefinition(InstructionGroup::SRA, U8Reg::HL, U8Reg::HL, 0, 4);
     dictPrefix[0x2f] = new InstructionDefinition(InstructionGroup::SRA, U8Reg::A, U8Reg::A, 0, 2);
 }
-
-
-InstructionDefinition* InstructionDict::get(uint8_t opcode, bool prefix) {
-    return prefix ? dictPrefix[opcode] : dict[opcode];
-}

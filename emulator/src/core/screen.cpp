@@ -1,76 +1,49 @@
 #include "Screen.h"
 
-Screen::Screen()
-: display(OLED_WIDTH, OLED_HEIGHT, &Wire, -1) {}
+Screen::Screen() : tft() {
+    colorArray[0] = tft.color565(232, 252, 204);
+    colorArray[1] = tft.color565(172, 212, 144);
+    colorArray[2] = tft.color565(84, 140, 112);
+    colorArray[3] = tft.color565(20, 44, 56);
+}
 
 void Screen::init() {
-    Wire.begin(21, 22);
-    Wire.setClock(400000);
+    tft.init();
+    tft.setSwapBytes(true);
+    tft.setRotation(0); 
+    tft.fillScreen(TFT_BLACK);
 
-    if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
-        while (true);
-    }
+    int tw = tft.width();
+    int th = tft.height();
 
-    display.clearDisplay();
+    xOff = (tw - GB_WIDTH)  / 2;
+    yOff = (th - GB_HEIGHT) / 2;
 
-    display.setTextSize(1);
-    display.setTextColor(SSD1306_WHITE);
+    if (xOff < 0) xOff = 0;
+    if (yOff < 0) yOff = 0;
 
-    const char* title = "Simple Gameboy";
-    int16_t x1, y1;
-    uint16_t w, h;
-
-    display.getTextBounds(title, 0, 0, &x1, &y1, &w, &h);
-
-    int x = (OLED_WIDTH  - w) / 2;
-    int y = (OLED_HEIGHT - h) / 2;
-
-    display.setCursor(x, y);
-    display.println(title);
-
-    display.display();
+    xTaskCreatePinnedToCore(displayJob, "display", 8192, this, 5, nullptr, 0);
 }
 
-bool Screen::shadeToMono(uint8_t shade) {
-    return shade != 3;
+void Screen::drawLine(uint8_t y, uint8_t* pixels) {
+    LineJob job = {y, pixels};
+    xQueueSend(lineQueue, &job, portMAX_DELAY);
 }
 
-void Screen::drawLine(uint8_t y, const uint8_t* pixels) {
-    if (y < Y_OFFSET || y >= (Y_OFFSET + OLED_HEIGHT)) {
-        return;
-    }
 
-    const int oledY = y - Y_OFFSET;
+void Screen::displayJob(void* args) {
+    Screen* screen = static_cast<Screen*>(args);
+    LineJob job;
+    for(;;) {
+        if(xQueueReceive(screen->lineQueue, &job, portMAX_DELAY)) {
+            for (int x = 0; x < GB_WIDTH; x++) {
+                screen->lineBuf[x] = screen->colorArray[job.buffer[x]];
+            }
 
-    // Cada "page" tem 8 linhas (bits)
-    const uint8_t page = oledY >> 3;          // / 8
-    const uint8_t bitMask = 1 << (oledY & 7); // % 8
-
-    // Pega ponteiro do buffer interno do Adafruit_SSD1306
-    uint8_t* buf = display.getBuffer();
-
-    // Layout padrão: buf[x + page * OLED_WIDTH]
-    const int rowBase = page * OLED_WIDTH;
-
-    for (int x = 0; x < OLED_WIDTH; x++) {
-        const uint8_t shade = pixels[x]; // seu gbX == x
-        const bool on = shadeToMono(shade);
-
-        uint8_t& b = buf[rowBase + x];
-
-        if (on) {
-            b |= bitMask;    // seta bit
-        } else {
-            b &= ~bitMask;   // limpa bit
+            screen->tft.startWrite();
+            screen->tft.setAddrWindow(screen->xOff, screen->yOff + job.y, GB_WIDTH, 1);
+            screen->tft.pushPixels(screen->lineBuf, GB_WIDTH);
+            screen->tft.endWrite();
         }
     }
-
-    if (oledY == OLED_HEIGHT - 1) {
-        canDraw = true;
-        //drawFrame(); // normalmente: display.display()
-    }
-}
-
-void Screen::drawFrame() {
-    display.display();
 }

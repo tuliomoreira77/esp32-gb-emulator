@@ -2,7 +2,6 @@
 #define CALCULATOR_H
 
 #include <cstdint>
-#include <array>
 
 class Calculator {
 public:

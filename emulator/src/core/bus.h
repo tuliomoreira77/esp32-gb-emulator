@@ -2,8 +2,6 @@
 #define BUS_H
 
 #include <cstdint>
-#include <array>
-
 #include "calculator.h"
 #include "joypad.h"
 
@@ -107,13 +105,6 @@ public:
     void requestSerialInterrupt();
 
     void clearInterruptionRequest(int bit);
-
-    
-
-/*
-    void wire_outcome_serial(uint8_t value);
-*/
-    
 
 };
 

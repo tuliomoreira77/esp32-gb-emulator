@@ -39,17 +39,6 @@ class CPU {
             {U8Reg::V7, 0x38},
         };
 
-        std::map<U8Reg, uint8_t> bitLookup = {
-            {U8Reg::C_BIT0, 0},
-            {U8Reg::C_BIT1, 1},
-            {U8Reg::C_BIT2, 2},
-            {U8Reg::C_BIT3, 3},
-            {U8Reg::C_BIT4, 4},
-            {U8Reg::C_BIT5, 5},
-            {U8Reg::C_BIT6, 6},
-            {U8Reg::C_BIT7, 7},
-        };
-
     public:
         CPU(MemoryBus *bus);
         uint16_t executeStep();

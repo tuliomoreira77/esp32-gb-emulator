@@ -107,11 +107,12 @@ class Instruction {
 
 class InstructionDict {
     private:
+        
+    public:
         InstructionDefinition* dict[256];
         InstructionDefinition* dictPrefix[256];
-    public:
+
         InstructionDict();
-        InstructionDefinition* get(u_int8_t opcode, bool prefix);
 };
 
 #endif

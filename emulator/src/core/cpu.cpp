@@ -1,5 +1,4 @@
 #include "cpu.h"
-#include "instructions.h"
 
 CPU::CPU(MemoryBus *bus) {
     registers = new Registers();
@@ -104,9 +103,9 @@ inline void CPU::fetchInstruction() {
     if (rawInstruction[0] == 0xCB) {
         rawInstruction = rawInstruction + 1;
         programCounter = programCounter + 1;
-        instructionDefinition = instrucionDict->get(rawInstruction[0], true);
+        instructionDefinition = instrucionDict->dictPrefix[rawInstruction[0]];
     } else {
-        instructionDefinition = instrucionDict->get(rawInstruction[0], false);
+        instructionDefinition = instrucionDict->dict[rawInstruction[0]];
     }
 
     currentInstruction->definition = instructionDefinition;

@@ -10,13 +10,13 @@ void MemoryBus::insertCartridge(uint8_t* rom) {
 }
 
 uint8_t MemoryBus::readByte(uint16_t addr) {
-    if (addr >= EXTERNAL_RAM_BEGIN && addr <= EXTERNAL_RAM_END)
-        return intMemory[addr];
+    if(addr >= 0x8000) {
+        if (addr >= EXTERNAL_RAM_BEGIN && addr <= EXTERNAL_RAM_END)
+            return intMemory[addr];
 
-    if (addr == JOYPAD_REG)
-        return wireJoypad();
+        if (addr == JOYPAD_REG)
+            return wireJoypad();
 
-    if (addr >= 0x8000) {
         return intMemory[addr];
     }
 
@@ -24,10 +24,10 @@ uint8_t MemoryBus::readByte(uint16_t addr) {
 }
 
 uint8_t* MemoryBus::fetchBlock(uint16_t addr) {
-    if (addr >= EXTERNAL_RAM_BEGIN && addr <= EXTERNAL_RAM_END)
-        return &intMemory[addr];
-    
-    if (addr >= 0x8000) {
+    if(addr >= 0x8000) {
+        if (addr >= EXTERNAL_RAM_BEGIN && addr <= EXTERNAL_RAM_END)
+            return &intMemory[addr];
+        
         return &intMemory[addr];
     }
 
