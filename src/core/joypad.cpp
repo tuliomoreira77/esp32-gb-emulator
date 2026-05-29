@@ -21,7 +21,7 @@ void Joypad::init() {
 
 void Joypad::joypadJob(void* args) {
     Joypad* joypad = static_cast<Joypad*>(args);
-    const TickType_t xDelay = pdMS_TO_TICKS(100);
+    const TickType_t xDelay = pdMS_TO_TICKS(50);
 
     for(;;) {
         int rawValueX = 1025; //analogRead(34);

@@ -32,9 +32,9 @@ void Screen::init() {
 
     dmaBuffer.counter=0;
     dmaBuffer.y0=0;
-    dmaBuffer.buffer = (uint16_t*) heap_caps_malloc(bufferSize, MALLOC_CAP_DMA);
-    dmaBuffer.preBuffer = (uint16_t*) heap_caps_malloc(bufferSize, MALLOC_CAP_DMA);
-    dmaBuffer.cursor = dmaBuffer.preBuffer;
+    dmaBuffer.bufferA = (uint16_t*) heap_caps_malloc(bufferSize, MALLOC_CAP_DMA);
+    dmaBuffer.bufferB = (uint16_t*) heap_caps_malloc(bufferSize, MALLOC_CAP_DMA);
+    dmaBuffer.cursor = dmaBuffer.bufferA;
 
     xTaskCreatePinnedToCore(displayJob, "display", 8192, this, 0, nullptr, 0);
 }
@@ -63,7 +63,8 @@ void Screen::displayJob(void* args) {
 
             if(screen->dmaBuffer.counter == 0) {
                 screen->dmaBuffer.y0 = y0;
-                screen->dmaBuffer.cursor = screen->dmaBuffer.preBuffer;
+                uint16_t* writerBuffer = screen->dmaBuffer.pingPong == false ? screen->dmaBuffer.bufferA : screen->dmaBuffer.bufferB;
+                screen->dmaBuffer.cursor = writerBuffer;
             }
 
             for (int i = 0; i < linesToDraw; i++) {
@@ -74,7 +75,8 @@ void Screen::displayJob(void* args) {
             }
 
             if(screen->dmaBuffer.counter >= BUFFER_SIZE_IN_LINES - 1 || y1 == SCALED_HEIGHT) {
-                memcpy(screen->dmaBuffer.buffer, screen->dmaBuffer.preBuffer, screen->bufferSize);
+                uint16_t* readerBuffer = screen->dmaBuffer.pingPong == false ? screen->dmaBuffer.bufferA : screen->dmaBuffer.bufferB;
+                screen->dmaBuffer.pingPong = !screen->dmaBuffer.pingPong;
 
                 screen->tft.startWrite();
                 screen->tft.setAddrWindow(
@@ -84,7 +86,7 @@ void Screen::displayJob(void* args) {
                     screen->dmaBuffer.counter
                 );
                 screen->tft.pushPixelsDMA(
-                    screen->dmaBuffer.buffer,
+                    readerBuffer,
                     SCALED_WIDTH * screen->dmaBuffer.counter
                 );
                 screen->tft.endWrite();
@@ -109,11 +111,6 @@ void Screen::displayJobNoDMA(void* args) {
             int y0 = screen->yMap[job.y];
             int y1 = screen->yMap[job.y + 1];
             int linesToDraw = y1 - y0;
-
-            if(screen->dmaBuffer.counter == 0) {
-                screen->dmaBuffer.y0 = y0;
-                screen->dmaBuffer.cursor = screen->dmaBuffer.preBuffer;
-            }
 
             screen->tft.startWrite();
             screen->tft.setAddrWindow(

@@ -32,7 +32,7 @@ void setup() {
   memMap.bank6 = (uint8_t*) malloc(0x4000);
   memMap.bank7 = (uint8_t*) malloc(0x4000);
 
-  //Serial.begin(115200);
+  Serial.begin(115200);
 
   joypad = new Joypad();
   screen = new Screen();
@@ -53,11 +53,11 @@ void setup() {
 void loop() {
   motherboard->runCycle();
   
-  /*unsigned long iTime = millis();
+  unsigned long iTime = millis();
   for(unsigned long count =0; count < 1000000; count++) {
     motherboard->runCycle();
   }
-  Serial.println(millis() - iTime);*/
+  Serial.println(millis() - iTime);
   
   
 }

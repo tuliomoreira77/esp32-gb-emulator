@@ -29,9 +29,10 @@ public:
         uint8_t y0;
         uint8_t counter;
         uint8_t size = BUFFER_SIZE_IN_LINES;
-        uint16_t* preBuffer;
-        uint16_t* buffer;
+        uint16_t* bufferA;
+        uint16_t* bufferB;
         uint16_t* cursor;
+        bool pingPong = false;
     };
 
 private:
