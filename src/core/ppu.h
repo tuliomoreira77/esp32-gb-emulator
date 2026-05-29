@@ -17,12 +17,15 @@ class OAMObject {
 
 class PPU {
     private:
+        static constexpr uint8_t FRAME_SKIP_DIVIDER = 3;
+
         MemoryBus* bus;
         Screen* screen;
         Calculator* calculator = new Calculator();
 
         uint16_t cycles = 0;
         uint8_t lineRendered = 0;
+        uint8_t frameRendered = 0;
         uint8_t rawLcdControlRegister = 0xFF;
         uint8_t actualMode = 2;
         bool statLineTrigger = false;

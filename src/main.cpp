@@ -57,8 +57,7 @@ void loop() {
   for(unsigned long count =0; count < 1000000; count++) {
     motherboard->runCycle();
   }
-  Serial.println(millis() - iTime);
-  Serial.println(ESP.getFreeHeap());
-  */
+  Serial.println(millis() - iTime);*/
+  
   
 }

@@ -25,7 +25,7 @@ void PPU::step(uint16_t newCycle) {
         getLcdControl();
 
         if (actualMode == 1) {
-            renderFrame = !renderFrame;
+            renderFrame = frameRendered % FRAME_SKIP_DIVIDER == 0;
             bus->requestVblankInterrupt();
         }
 
@@ -47,6 +47,7 @@ void PPU::step(uint16_t newCycle) {
         getLcdControl();
         if (lineRendered > 153) {
             lineRendered = 0;
+            frameRendered++;
         }
         cycles = cycles % 456;
     }
