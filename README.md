@@ -13,7 +13,6 @@ The emulator is designed for hobbyist hardware and prototype use, not as a finis
 - Memory bank controller support for ROM banks
 - Display output via an SPI-driven screen
 - Joypad input support
-- Cartridge file handling from `data/` directory
 
 ## Limitations
 - No audio emulation is included.
@@ -24,7 +23,7 @@ The emulator is designed for hobbyist hardware and prototype use, not as a finis
 
 A hardware schematic is included in the `docs/` folder:
 
-- `docs/schematic.png`
+- ![docs/schematic.pn](/docs/schematic.png)
 
 Use the schematic as a reference for wiring the ESP32 board, display, and input connections.
 
