@@ -6,9 +6,6 @@
 #include "core/screen.h"
 #include "core/memory_map.h"
 
-/*
-TODO -> Bus - Rom Banking, Memory Banking, Rom read
-*/
 MemoryMap memMap;
 Motherboard* motherboard = nullptr;
 Joypad* joypad = nullptr;
