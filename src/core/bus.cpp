@@ -18,6 +18,7 @@ MemoryBus::MemoryBus(Joypad* jp, FileSystem* fileSystem, MemoryMap* memoryMap) {
     this->bankCache[4].bankPointer = memoryMap->bank5;
     this->bankCache[5].bankPointer = memoryMap->bank6;
     this->bankCache[6].bankPointer = memoryMap->bank7;
+    this->bankCache[7].bankPointer = memoryMap->bank8;
 }
 
 void MemoryBus::insertCartridge() {
@@ -43,6 +44,9 @@ void MemoryBus::insertCartridge() {
 
     this->fileSystem->readRom(0x1C000, 0x4000, bankCache[6].bankPointer);
     bankCache[6].bankNumber = 7;
+
+    this->fileSystem->readRom(0x20000, 0x4000, bankCache[7].bankPointer);
+    bankCache[7].bankNumber = 8;
 
     this->bank1 = memoryMap->bank1 - 0x4000;
 
@@ -89,7 +93,7 @@ uint8_t IRAM_ATTR MemoryBus::readVRam(uint16_t addr) {
     return highMemory[addr];
 }
 
-void MemoryBus::writeByte(uint16_t addr, uint8_t value) {
+void IRAM_ATTR MemoryBus::writeByte(uint16_t addr, uint8_t value) {
     if (addr >= 0x8000) {
         if (addr >= EXTERNAL_RAM_BEGIN && addr <= EXTERNAL_RAM_END) {
             extMemory[mbc->ramAddr + (addr - EXTERNAL_RAM_BEGIN)] = value;
@@ -139,7 +143,7 @@ void MemoryBus::changeRomBank(uint8_t bank) {
     }
 
     BankCacheControl* leastUsedBank = &bankCache[0];
-    for(int i = 0; i < 7; i++) {
+    for(int i = 0; i < 8; i++) {
         if(bankCache[i].bankNumber == bank) {
             bankCache[i].lastUsed = ++accessCounter;
             this->bank1 = bankCache[i].bankPointer - 0x4000;
@@ -175,35 +179,42 @@ void IRAM_ATTR MemoryBus::incTimerCounter() {
 
 void MemoryBus::requestTimerInterrupt() {
     highMemory[INTERRUPT_FLAG] =
-        calculator.setBit(highMemory[INTERRUPT_FLAG], 2);
+    calculator.setBit(highMemory[INTERRUPT_FLAG], 2);
 }
 
 void MemoryBus::requestStatInterrupt() {
     highMemory[INTERRUPT_FLAG] =
-        calculator.setBit(highMemory[INTERRUPT_FLAG], 1);
+    calculator.setBit(highMemory[INTERRUPT_FLAG], 1);
 }
 
 void MemoryBus::requestVblankInterrupt() {
     highMemory[INTERRUPT_FLAG] =
-        calculator.setBit(highMemory[INTERRUPT_FLAG], 0);
+    calculator.setBit(highMemory[INTERRUPT_FLAG], 0);
 }
 
 void MemoryBus::requestJoypadInterrupt() {
     highMemory[INTERRUPT_FLAG] =
-        calculator.setBit(highMemory[INTERRUPT_FLAG], 4);
+    calculator.setBit(highMemory[INTERRUPT_FLAG], 4);
 }
 
 void MemoryBus::requestSerialInterrupt() {
     highMemory[INTERRUPT_FLAG] =
-        calculator.setBit(highMemory[INTERRUPT_FLAG], 3);
+    calculator.setBit(highMemory[INTERRUPT_FLAG], 3);
 }
 
 void MemoryBus::clearInterruptionRequest(int bit) {
     highMemory[INTERRUPT_FLAG] =
-        calculator.resetBit(highMemory[INTERRUPT_FLAG], bit);
+    calculator.resetBit(highMemory[INTERRUPT_FLAG], bit);
 }
 
-uint8_t IRAM_ATTR MemoryBus::wireJoypad() {
+uint8_t IRAM_ATTR MemoryBus::verifyPendingInterrupts() {
+    uint8_t interruptEnableReg = highMemory[INTERRUPT_ENABLE_REGISTER];
+    uint8_t interruptFlag = highMemory[INTERRUPT_FLAG];
+    return interruptEnableReg & interruptFlag;
+}
+
+
+inline uint8_t IRAM_ATTR MemoryBus::wireJoypad() {
     uint8_t j = highMemory[JOYPAD_REG];
     uint8_t selector = j & 0b00110000;
 

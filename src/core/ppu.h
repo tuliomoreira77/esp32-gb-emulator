@@ -36,6 +36,8 @@ class PPU {
         uint8_t objectsBufferSize = 0;
 
         uint8_t bgBuffer[168];
+        uint8_t palleteMap0[4];
+        uint8_t palleteMap1[4];
 
     public:
         PPU(MemoryBus* bus, Screen* screen);
@@ -52,6 +54,7 @@ class PPU {
         void oamScan();
         void oamFetch();
         void renderObjLine(uint8_t* bgLine);
+        void buildPalleteMap(uint16_t addr, uint8_t* palleteMap);
 
         uint8_t* renderScanLine();
 

@@ -1,6 +1,7 @@
 #ifndef INSTRUCTIONS_H
 #define INSTRUCTIONS_H
 
+#include "freertos/FreeRTOS.h"
 #include <map>
 #include "reg_enums.h"
 
@@ -109,8 +110,8 @@ class InstructionDict {
     private:
         
     public:
-        InstructionDefinition* dict[256];
-        InstructionDefinition* dictPrefix[256];
+        InstructionDefinition* dict = static_cast<InstructionDefinition*>(heap_caps_malloc(sizeof(InstructionDefinition) * 256, MALLOC_CAP_DEFAULT));
+        InstructionDefinition* dictPrefix = static_cast<InstructionDefinition*>(heap_caps_malloc(sizeof(InstructionDefinition) * 256, MALLOC_CAP_DEFAULT));
 
         InstructionDict();
 };

@@ -1,5 +1,15 @@
 #include "joypad.h"
 
+namespace {
+    static constexpr int PIN_BUTTON_A      = 27;
+    static constexpr int PIN_BUTTON_B      = 32;
+    static constexpr int PIN_BUTTON_START  = 33;
+    static constexpr int PIN_DPAD_UP       = 35;
+    static constexpr int PIN_DPAD_DOWN     = 26;
+    static constexpr int PIN_DPAD_LEFT     = 34;
+    static constexpr int PIN_DPAD_RIGHT    = 25;
+}
+
 uint8_t IRAM_ATTR Joypad::getDPad() {
     return rawDPad;
 }
@@ -9,11 +19,13 @@ uint8_t IRAM_ATTR Joypad::getButtons() {
 }
 
 void Joypad::init() {
-    pinMode(25, INPUT);
-    pinMode(32, INPUT);
-    pinMode(33, INPUT);
-    pinMode(34, INPUT);
-    pinMode(35, INPUT);
+    pinMode(PIN_BUTTON_A, INPUT);
+    pinMode(PIN_BUTTON_B, INPUT);
+    pinMode(PIN_BUTTON_START, INPUT);
+    pinMode(PIN_DPAD_UP, INPUT);
+    pinMode(PIN_DPAD_DOWN, INPUT);
+    pinMode(PIN_DPAD_LEFT, INPUT);
+    pinMode(PIN_DPAD_RIGHT, INPUT);
 
     xTaskCreatePinnedToCore(joypadJob, "buttons", 1024, this, 3, nullptr, 0);
 }
@@ -24,42 +36,44 @@ void Joypad::joypadJob(void* args) {
     const TickType_t xDelay = pdMS_TO_TICKS(50);
 
     for(;;) {
-        int rawValueX = 1025; //analogRead(34);
-        int rawValueY = 1025; //analogRead(35);
-        int buttonStart = digitalRead(32);
-        int buttonA = digitalRead(33);
-        int buttonB = digitalRead(25);
+        int buttonStart = digitalRead(PIN_BUTTON_START);
+        int buttonA = digitalRead(PIN_BUTTON_A);
+        int buttonB = digitalRead(PIN_BUTTON_B);
+        int buttonUp = digitalRead(PIN_DPAD_UP);
+        int buttonDown = digitalRead(PIN_DPAD_DOWN);
+        int buttonLeft = digitalRead(PIN_DPAD_LEFT);
+        int buttonRight = digitalRead(PIN_DPAD_RIGHT);
 
         joypad->rawDPad = 0b1111;
         joypad->rawButtons = 0b1111;
 
-        if(rawValueX < 1024) {
-            joypad->rawDPad = joypad->rawDPad & 0b1011;
+        if (buttonStart == HIGH) {
+            joypad->rawButtons &= 0b0111;
             joypad->keyPressed = true;
         }
-        if(rawValueX > 3072) {
-            joypad->rawDPad = joypad->rawDPad & 0b0111;
+        if (buttonA == HIGH) {
+            joypad->rawButtons &= 0b1110;
             joypad->keyPressed = true;
         }
-        if(rawValueY < 1024) {
-            joypad->rawDPad = joypad->rawDPad & 0b1110;
-            joypad->keyPressed = true;
-        }
-        if(rawValueY > 3072) {
-            joypad->rawDPad = joypad->rawDPad & 0b1101;
+        if (buttonB == HIGH) {
+            joypad->rawButtons &= 0b1101;
             joypad->keyPressed = true;
         }
 
-        if(buttonStart == HIGH) {
-            joypad->rawButtons = joypad->rawButtons & 0b0111;
+        if (buttonRight == HIGH) {
+            joypad->rawDPad &= 0b1110;
             joypad->keyPressed = true;
         }
-        if(buttonA == HIGH) {
-            joypad->rawButtons = joypad->rawButtons & 0b1101;
+        if (buttonLeft == HIGH) {
+            joypad->rawDPad &= 0b1101;
             joypad->keyPressed = true;
         }
-        if(buttonB == HIGH) {
-            joypad->rawButtons = joypad->rawButtons & 0b1110;
+        if (buttonUp == HIGH) {
+            joypad->rawDPad &= 0b1011;
+            joypad->keyPressed = true;
+        }
+        if (buttonDown == HIGH) {
+            joypad->rawDPad &= 0b0111;
             joypad->keyPressed = true;
         }
 

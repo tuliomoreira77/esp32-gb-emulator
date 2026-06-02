@@ -26,7 +26,7 @@ class CPU {
         Instruction *currentInstruction;
 
         uint16_t interruptVector[5] = {0x40,0x50,0x48,0x58,0x60};
-
+        typedef void (CPU::*InstructionHandler)(Instruction*);
 
     public:
         CPU(MemoryBus *bus);

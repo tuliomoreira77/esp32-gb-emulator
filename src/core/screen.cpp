@@ -36,7 +36,7 @@ void Screen::init() {
     dmaBuffer.bufferB = (uint16_t*) heap_caps_malloc(bufferSize, MALLOC_CAP_DMA);
     dmaBuffer.cursor = dmaBuffer.bufferA;
 
-    xTaskCreatePinnedToCore(displayJob, "display", 8192, this, 0, nullptr, 0);
+    xTaskCreatePinnedToCore(displayJob, "display", 2048, this, 0, nullptr, 0);
 }
 
 void Screen::drawLine(uint8_t y, uint8_t* pixels) {

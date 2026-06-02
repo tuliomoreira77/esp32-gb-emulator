@@ -74,7 +74,7 @@ void CPU::debugInstr(Instruction* instruction) {
 
 uint16_t CPU::executeStep() {
     clockCycle = 0;
-    uint8_t pendingInterrupts = verifyPendingInterrupts();
+    uint8_t pendingInterrupts = bus->verifyPendingInterrupts();
 
     if (isHalt == true) {
         if (pendingInterrupts != 0 && interruptEnable) {
@@ -103,13 +103,13 @@ inline void IRAM_ATTR CPU::fetchInstruction() {
     uint8_t* rawInstruction = bus->fetchBlock(programCounter);
 
     InstructionDefinition *instructionDefinition = nullptr;
-
+    
     if (rawInstruction[0] == 0xCB) {
         rawInstruction = rawInstruction + 1;
         programCounter = programCounter + 1;
-        instructionDefinition = instrucionDict->dictPrefix[rawInstruction[0]];
+        instructionDefinition = &instrucionDict->dictPrefix[rawInstruction[0]];
     } else {
-        instructionDefinition = instrucionDict->dict[rawInstruction[0]];
+        instructionDefinition = &instrucionDict->dict[rawInstruction[0]];
     }
 
     currentInstruction->definition = instructionDefinition;
@@ -122,90 +122,72 @@ inline void IRAM_ATTR CPU::fetchInstruction() {
     clockCycle = clockCycle + instructionDefinition->cycles;
 };
 
-inline void CPU::instructionRouter(Instruction* instruction) {
-    const uint8_t g = static_cast<uint8_t>(instruction->definition->group);
-
-    if (g <= LDS) {
-        if (g == LD)   { basicLoad(instruction);   return; }
-        if (g == LDP)  { pointerLoad(instruction); return; }
-        if (g == LDH)  { loadHigh(instruction);    return; }
-        if (g == LD16) { load16(instruction);      return; }
-        /* g == LDS */ { loadStack(instruction);   return; }
-    }
-
-    if (g <= DAA) {
-        if (g == ADD || g == ADDC) { addU8(instruction); return; }
-
-        if (g == SUB || g == SUBC) { subU8(instruction); return; }
-
-        if (g == AND) { andU8(instruction); return; }
-        if (g == OR)  { orU8(instruction);  return; }
-        if (g == XOR) { xorU8(instruction); return; }
-
-        if (g == CP)  { compare(instruction);       return; }
-        /* g == DAA */{ decimalAdjust(instruction); return; }
-    }
-
-    if (g <= DEC16) {
-        if (g == INC)   { incrementU8(instruction);  return; }
-        if (g == DEC8)  { decrementU8(instruction);  return; }
-        if (g == INC16) { incrementU16(instruction); return; }
-        /* g == DEC16 */{ decrementU16(instruction); return; }
-    }
-
-    if (g <= ADDSP) {
-        if (g == ADDHL) { addU16(instruction);       return; }
-        /* g == ADDSP */{ addSignedSP(instruction);  return; }
-    }
-
-    if (g <= RST) {
-        if (g == JP)   { directJump(instruction);   return; }
-        if (g == JPR)  { relativeJump(instruction); return; }
-        if (g == CALL) { call(instruction);         return; }
-        if (g == RET)  { ret(instruction);          return; }
-        if (g == RETI) { reti(instruction);         return; }
-        /* g == RST */ { rst(instruction);          return; }
-    }
-
-    if (g <= POP) {
-        if (g == PUSH) { push(instruction); return; }
-        /* g == POP */ { pop(instruction);  return; }
-    }
-
-    if (g <= SWAP) {
-        if (g == RL)   { rotateLeft(instruction);        return; }
-        if (g == RLC)  { rotateLeftCarry(instruction);   return; }
-        if (g == RR)   { rotateRight(instruction);       return; }
-        if (g == RRC)  { rotateRightCarry(instruction);  return; }
-
-        if (g == RLCA) { rotateLeftACarry(instruction);  return; }
-        if (g == RLA)  { rotateLeftA(instruction);       return; }
-        if (g == RRCA) { rotateRightACarry(instruction); return; }
-        if (g == RRA)  { rotateRightA(instruction);      return; }
-
-        if (g == SLA)  { shiftLeftA(instruction);        return; }
-        if (g == SRA)  { shiftRightA(instruction);       return; }
-        if (g == SRL)  { shiftRightL(instruction);       return; }
-        /* g == SWAP */{ swap(instruction);              return; }
-    }
-
-    if (g <= RES) {
-        if (g == BIT) { bitOp(instruction); return; }
-        if (g == SET) { set(instruction);   return; }
-        /* g == RES */{ reset(instruction); return; }
-    }
-
-    if (g <= CPL) {
-        if (g == CCF) { complementCarryFlag(instruction);  return; }
-        if (g == SCF) { setCarryFlag(instruction);         return; }
-        /* g == CPL */{ complementAcumulator(instruction); return; }
-    }
-
-    if (g == DI)   { disableInterrupts(instruction); return; }
-    if (g == EI)   { enableInterrupts(instruction);  return; }
-    if (g == HALT) { halt(instruction);              return; }
-    if (g == NOP)  { noOp(instruction);              return; }
-    if (g == STOP) { noOp(instruction);              return; }
+inline IRAM_ATTR void CPU::instructionRouter(Instruction* instruction) {
+    static const InstructionHandler handlers[INSTRUCTION_GROUP_COUNT] = {
+        &CPU::basicLoad,               // LD
+        &CPU::pointerLoad,             // LDP
+        &CPU::loadHigh,                // LDH
+        &CPU::load16,                  // LD16
+        &CPU::loadStack,               // LDS
+        
+        &CPU::addU8,                   // ADD
+        &CPU::addU8,                   // ADDC
+        &CPU::subU8,                   // SUB
+        &CPU::subU8,                   // SUBC
+        &CPU::andU8,                   // AND
+        &CPU::orU8,                    // OR
+        &CPU::xorU8,                   // XOR
+        &CPU::compare,                 // CP
+        &CPU::decimalAdjust,           // DAA
+        
+        &CPU::incrementU8,             // INC
+        &CPU::decrementU8,             // DEC8
+        &CPU::incrementU16,            // INC16
+        &CPU::decrementU16,            // DEC16
+        
+        &CPU::addU16,                  // ADDHL
+        &CPU::addSignedSP,             // ADDSP
+        
+        &CPU::directJump,              // JP
+        &CPU::relativeJump,            // JPR
+        &CPU::call,                    // CALL
+        &CPU::ret,                     // RET
+        &CPU::reti,                    // RETI
+        &CPU::rst,                     // RST
+        
+        &CPU::push,                    // PUSH
+        &CPU::pop,                     // POP
+        
+        &CPU::rotateLeft,              // RL
+        &CPU::rotateLeftCarry,         // RLC
+        &CPU::rotateRight,             // RR
+        &CPU::rotateRightCarry,        // RRC
+        &CPU::rotateLeftACarry,        // RLCA
+        &CPU::rotateLeftA,             // RLA
+        &CPU::rotateRightACarry,       // RRCA
+        &CPU::rotateRightA,            // RRA
+        &CPU::shiftLeftA,              // SLA
+        &CPU::shiftRightA,             // SRA
+        &CPU::shiftRightL,             // SRL
+        &CPU::swap,                    // SWAP
+        
+        &CPU::bitOp,                   // BIT
+        &CPU::set,                     // SET
+        &CPU::reset,                   // RES
+        
+        &CPU::complementCarryFlag,     // CCF
+        &CPU::setCarryFlag,            // SCF
+        &CPU::complementAcumulator,    // CPL
+        
+        &CPU::disableInterrupts,       // DI
+        &CPU::enableInterrupts,        // EI
+        &CPU::halt,                    // HALT
+        &CPU::noOp,                    // NOP
+        &CPU::noOp,                    // STOP
+    };
+    
+    uint8_t g = static_cast<uint8_t>(instruction->definition->group);
+    (this->*handlers[g])(instruction);
 }
 
 
@@ -977,7 +959,7 @@ void CPU::halt(Instruction* instruction) {
     if (interruptEnable == true) {
         isHalt = true;
     } else {
-        if (verifyPendingInterrupts() != 0) {
+        if (bus->verifyPendingInterrupts() != 0) {
             isHalt = false;
         } else {
             isHalt = true;
@@ -1227,12 +1209,6 @@ uint8_t CPU::getFirstInterrupt(uint8_t pendingInterrupts) {
     }
 
     return 7;
-}
-
-inline IRAM_ATTR uint8_t CPU::verifyPendingInterrupts() {
-    uint8_t interruptEnableReg = bus->readVRam(INTERRUPT_ENABLE_REGISTER);
-    uint8_t interruptFlag = bus->readVRam(INTERRUPT_FLAG);
-    return interruptEnableReg & interruptFlag;
 }
 
 

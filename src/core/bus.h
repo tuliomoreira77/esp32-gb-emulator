@@ -122,7 +122,7 @@ private:
     Calculator calculator;
 
     MemoryMap* memoryMap;
-    BankCacheControl bankCache[7];
+    BankCacheControl bankCache[8];
     uint32_t accessCounter = 0;
     uint8_t* bank0;
     uint8_t* bank1;
@@ -165,6 +165,8 @@ public:
     void requestSerialInterrupt();
 
     void clearInterruptionRequest(int bit);
+
+    uint8_t verifyPendingInterrupts();
 
 };
 

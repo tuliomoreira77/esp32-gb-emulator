@@ -53,19 +53,20 @@ void PPU::step(uint16_t newCycle) {
     }
 }
 
-uint8_t PPU::getScanlineMode() {
+uint8_t IRAM_ATTR PPU::getScanlineMode() {
     if (lineRendered > 143) {
         return 1;
-    }
-    if (cycles >= 80 && cycles < 256) {
-        return 3;
-    }
-    if (cycles >= 256 && cycles < 456) {
-        return 0;
     }
     if (cycles < 80) {
         return 2;
     }
+    if (cycles < 256) {
+        return 3;
+    }
+    if (cycles < 456) {
+        return 0;
+    }
+    
     return 0;
 }
 
@@ -149,13 +150,23 @@ uint8_t PPU::renderWindowLine() {
     return xOffset;
 }
 
+void PPU::buildPalleteMap(uint16_t addr, uint8_t* palleteMap) {
+    uint8_t pallete = bus->readVRam(addr);
+    palleteMap[0] = pallete & 0b11;
+    palleteMap[1] = pallete >> 2 & 0b11;
+    palleteMap[2] = pallete >> 4 & 0b11;
+    palleteMap[3] = pallete >> 6 & 0b11;
+}
+
 void PPU::renderObjLine(uint8_t* bgLine) {
-    //need to sort to organize objs
+    buildPalleteMap(OBP0, palleteMap0);
+    buildPalleteMap(OBP0, palleteMap1);
 
     for(int i=0; i<objectsBufferSize; i++) {
         OAMObject obj = objectsBuffer[i];
         bool priority = calculator->verifyBit(obj.attributes, 7);
         bool xInverted = calculator->verifyBit(obj.attributes, 5);
+        uint8_t* palleteMap = calculator->verifyBit(obj.attributes, 4) ? palleteMap1 : palleteMap0;
 
         //implement pallete
         for(uint8_t j=0; j<8; j++) {
@@ -166,7 +177,7 @@ void PPU::renderObjLine(uint8_t* bgLine) {
                     if(bgLine[obj.xPosition - 8 + j] != 0 && priority) //debug priority
                         continue;
 
-                    bgLine[obj.xPosition - 8 + j] = obj.pixels[pixelIndex]; 
+                    bgLine[obj.xPosition - 8 + j] = palleteMap[obj.pixels[pixelIndex]]; 
                 }
             }
         }

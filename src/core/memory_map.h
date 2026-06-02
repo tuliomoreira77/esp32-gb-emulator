@@ -12,6 +12,7 @@ struct MemoryMap {
     uint8_t* bank5;
     uint8_t* bank6;
     uint8_t* bank7;
+    uint8_t* bank8;
 
     uint8_t* extMem;
 };

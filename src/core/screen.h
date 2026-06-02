@@ -14,7 +14,7 @@ class Screen {
 public:
     static constexpr int SCALED_WIDTH = 240;
     static constexpr int SCALED_HEIGHT = 216;
-    static constexpr int BUFFER_SIZE_IN_LINES = 15;
+    static constexpr int BUFFER_SIZE_IN_LINES = 20;
 
     Screen();
     void init();
@@ -38,7 +38,7 @@ public:
 private:
     TFT_eSPI tft;
     uint16_t colorArray[4];
-    QueueHandle_t lineQueue = xQueueCreate(30, sizeof(LineJob));
+    QueueHandle_t lineQueue = xQueueCreate(100, sizeof(LineJob));
 
     int xOff = 0;
     int yOff = 0;
