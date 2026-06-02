@@ -23,7 +23,7 @@ The emulator is designed for hobbyist hardware and prototype use, not as a finis
 
 A hardware schematic is included in the `docs/` folder:
 
-- `[docs/schematic.pn](https://github.com/tuliomoreira77/esp32-gb-emulator/blob/main/docs/schematic.png)`
+- [docs/schematic.pn](https://github.com/tuliomoreira77/esp32-gb-emulator/blob/main/docs/schematic.png)
 
 Use the schematic as a reference for wiring the ESP32 board, display, and input connections.
 
