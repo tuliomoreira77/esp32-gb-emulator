@@ -37,7 +37,7 @@ void setup() {
 
   fileSystem = new FileSystem();
   motherboard = new Motherboard(joypad, screen, fileSystem, &memMap);
-  //Serial.begin(115200);
+  Serial.begin(115200);
 
   bool fileSystemOk = fileSystem->init("/pokemon_red.gb");
 
@@ -52,11 +52,10 @@ void setup() {
 void loop() {
   motherboard->runCycle();
   
-  /*unsigned long iTime = millis();
-  for(unsigned long count =0; count < 1000000; count++) {
-    motherboard->runCycle();
+  unsigned long iTime = millis();
+  for(unsigned long count =0; count < 1000000;) {
+    count = count + motherboard->runCycle();
   }
   Serial.println(millis() - iTime);
-  Serial.println(heap_caps_get_free_size(MALLOC_CAP_8BIT));
-  */
+  
 }

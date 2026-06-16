@@ -23,6 +23,6 @@ class Motherboard {
     public:
         Motherboard(Joypad* joypad, Screen* screen, FileSystem* fileSystem, MemoryMap* memMap);
         void insertCartridge();
-        void runCycle();
+        uint32_t runCycle();
 
 };

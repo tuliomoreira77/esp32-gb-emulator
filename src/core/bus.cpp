@@ -177,32 +177,32 @@ void IRAM_ATTR MemoryBus::incTimerCounter() {
     highMemory[TIMER_COUNTER] = v;
 }
 
-void MemoryBus::requestTimerInterrupt() {
+void IRAM_ATTR MemoryBus::requestTimerInterrupt() {
     highMemory[INTERRUPT_FLAG] =
     calculator.setBit(highMemory[INTERRUPT_FLAG], 2);
 }
 
-void MemoryBus::requestStatInterrupt() {
+void IRAM_ATTR MemoryBus::requestStatInterrupt() {
     highMemory[INTERRUPT_FLAG] =
     calculator.setBit(highMemory[INTERRUPT_FLAG], 1);
 }
 
-void MemoryBus::requestVblankInterrupt() {
+void IRAM_ATTR MemoryBus::requestVblankInterrupt() {
     highMemory[INTERRUPT_FLAG] =
     calculator.setBit(highMemory[INTERRUPT_FLAG], 0);
 }
 
-void MemoryBus::requestJoypadInterrupt() {
+void IRAM_ATTR MemoryBus::requestJoypadInterrupt() {
     highMemory[INTERRUPT_FLAG] =
     calculator.setBit(highMemory[INTERRUPT_FLAG], 4);
 }
 
-void MemoryBus::requestSerialInterrupt() {
+void IRAM_ATTR MemoryBus::requestSerialInterrupt() {
     highMemory[INTERRUPT_FLAG] =
     calculator.setBit(highMemory[INTERRUPT_FLAG], 3);
 }
 
-void MemoryBus::clearInterruptionRequest(int bit) {
+void IRAM_ATTR MemoryBus::clearInterruptionRequest(int bit) {
     highMemory[INTERRUPT_FLAG] =
     calculator.resetBit(highMemory[INTERRUPT_FLAG], bit);
 }
@@ -230,7 +230,7 @@ inline uint8_t IRAM_ATTR MemoryBus::wireJoypad() {
     return j;
 }
 
-void MemoryBus::dma(uint8_t addr) {
+void IRAM_ATTR MemoryBus::dma(uint8_t addr) {
     uint16_t src = addr << 8;
     uint16_t dst = OAM_BEGIN;
 

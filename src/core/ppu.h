@@ -38,6 +38,7 @@ class PPU {
         uint8_t bgBuffer[168];
         uint8_t palleteMap0[4];
         uint8_t palleteMap1[4];
+        uint8_t defaultPallete[4] = {0,1,2,3};
 
     public:
         PPU(MemoryBus* bus, Screen* screen);
@@ -46,7 +47,7 @@ class PPU {
     private:
         void getLcdControl();
         uint16_t tileAddrResolver(uint8_t tileIndex, bool isSigned);
-        void readTileLine(uint16_t tileAddr, uint8_t lineIndex, uint8_t size, uint8_t* buffer);
+        void readTileLine(uint16_t tileAddr, uint8_t lineIndex, uint8_t size, uint8_t* buffer, uint8_t* pallete);
         uint8_t getScanlineMode();
         void updateStat();
         uint8_t renderBgLine();
@@ -57,6 +58,4 @@ class PPU {
         void buildPalleteMap(uint16_t addr, uint8_t* palleteMap);
 
         uint8_t* renderScanLine();
-
-        static void renderJob(void* args);
 };

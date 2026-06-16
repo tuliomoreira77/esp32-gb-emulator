@@ -15,7 +15,7 @@ void Motherboard::insertCartridge() {
     memoryBus->insertCartridge();
 }
 
-void Motherboard::runCycle() {
+uint32_t Motherboard::runCycle() {
     if (joypad->keyPressed == true) {
         memoryBus->requestJoypadInterrupt();
         joypad->keyPressed = false;
@@ -26,4 +26,6 @@ void Motherboard::runCycle() {
 
     timer->step(globalCycles);
     ppu->step(globalCycles);
+
+    return mCycles;
 }

@@ -19,6 +19,7 @@ public:
     Screen();
     void init();
     void drawLine(uint8_t y, uint8_t* pixels);
+    void drawLineSync(uint8_t y, uint8_t* pixels);
 
     struct LineJob {
         uint8_t y;
@@ -50,4 +51,5 @@ private:
     DMABuffer dmaBuffer;
     static void displayJob(void* args);
     static void displayJobNoDMA(void* args);
+    static void renderDMA(Screen* screen, LineJob job);
 };

@@ -107,13 +107,15 @@ uint8_t PPU::renderBgLine() {
     uint8_t windowStartTile = windowStart / 8;
     uint8_t windowStartPixel = windowStart % 8;
 
+    buildPalleteMap(BG_W_PALETTE, palleteMap0);
+
     //Create better bg window overlay, now if window is in mid tile bg will overlay it
     for(int i=0; i < windowStartTile + 1; i++) {
         uint8_t tileMapX = (i + xOffset/8) % 32;
         uint16_t tileMapAddr =  (tileMapStart + tileMapX) + (tileMapOffset * 32);
         uint8_t tileIndex = bus->readVRam(tileMapAddr);
         uint16_t tileAddr = tileAddrResolver(tileIndex, tileAddressing);
-        readTileLine(tileAddr, tileLineOffset, 8, &bgBuffer[i*8]);
+        readTileLine(tileAddr, tileLineOffset, 8, &bgBuffer[i*8], palleteMap0);
     }
 
     return xOffset;
@@ -140,11 +142,13 @@ uint8_t PPU::renderWindowLine() {
 
     uint8_t initialTile = xOffset / 8;
 
+    buildPalleteMap(BG_W_PALETTE, palleteMap0);
+
     for(int i=0; i < 20 - initialTile; i++) {
         uint16_t tileMapAddr = (tileMapStart + i) + (tileMapOffset * 32);
         uint8_t tileIndex = bus->readVRam(tileMapAddr);
         uint16_t tileAddr = tileAddrResolver(tileIndex, tileAddressing);
-        readTileLine(tileAddr, tileLineOffset, 8, &bgBuffer[(i + initialTile)*8]);
+        readTileLine(tileAddr, tileLineOffset, 8, &bgBuffer[(i + initialTile)*8], palleteMap0);
     }
 
     return xOffset;
@@ -216,6 +220,7 @@ void PPU::oamFetch() {
     for(int i=0; i<objectsBufferSize; i++) {
         uint16_t tileAddr = 0x00;
         uint8_t tileLine = objectsBuffer[i].tineLine;
+        
         if(objectsBuffer[i].extendedSize) {
             if(objectsBuffer[i].tineLine >= 8) {
                 tileAddr = tileAddrResolver(objectsBuffer[i].tileIndex | 0x01, false);
@@ -229,7 +234,7 @@ void PPU::oamFetch() {
 
         bool yInverted = calculator->verifyBit(objectsBuffer[i].attributes, 6);
         tileLine = !yInverted ? tileLine : 7 - tileLine;
-        readTileLine(tileAddr, tileLine, 8, objectsBuffer[i].pixels);
+        readTileLine(tileAddr, tileLine, 8, objectsBuffer[i].pixels, defaultPallete);
     }
 }
 
@@ -241,7 +246,7 @@ uint16_t PPU::tileAddrResolver(uint8_t tileIndex, bool isSigned) {
     }
 }
 
-void PPU::readTileLine(uint16_t tileAddr, uint8_t lineIndex, uint8_t size, uint8_t* buffer) {
+void PPU::readTileLine(uint16_t tileAddr, uint8_t lineIndex, uint8_t size, uint8_t* buffer, uint8_t* pallete) {
     uint16_t lineAddr = tileAddr + (lineIndex * 2);
     uint8_t low  = bus->readVRam(lineAddr);
     uint8_t high = bus->readVRam(lineAddr + 1);
@@ -250,7 +255,7 @@ void PPU::readTileLine(uint16_t tileAddr, uint8_t lineIndex, uint8_t size, uint8
     for (int p = 0; p < size; p++) {
         uint8_t hiBit = (high & mask) >> (7 - p); 
         uint8_t loBit = (low & mask) >> (7 - p);
-        buffer[p] = (hiBit << 1) | loBit;
+        buffer[p] = pallete[(hiBit << 1) | loBit];
         mask >>= 1;
     }
 }

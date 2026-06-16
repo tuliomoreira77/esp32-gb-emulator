@@ -94,6 +94,10 @@ uint16_t CPU::executeStep() {
 
         fetchInstruction();
         instructionRouter(currentInstruction);
+
+        fetchInstruction();
+        instructionRouter(currentInstruction);
+
         //breakPoint(instruction);
     }
     return clockCycle;
