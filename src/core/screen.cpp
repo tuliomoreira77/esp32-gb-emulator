@@ -39,6 +39,22 @@ void Screen::init() {
     xTaskCreatePinnedToCore(displayJob, "display", 2048, this, 5, nullptr, 0);
 }
 
+void Screen::requestDrawUI() {
+    isDrawingUI = true;
+}
+
+void Screen::endDrawUI() {
+    isDrawingUI = false;
+}
+
+void Screen::drawSaveUI() {
+    tft.fillScreen(TFT_BLACK);
+    tft.setCursor(30, 60, 2);
+    tft.setTextColor(TFT_WHITE, TFT_BLACK); 
+    tft.setTextSize(3);
+    tft.println("Saving...");
+}
+
 void Screen::drawLine(uint8_t y, uint8_t* pixels) {
     LineJob job;
     job.y = y;
@@ -60,7 +76,7 @@ void Screen::displayJob(void* args) {
     LineJob job;
 
     for (;;) {
-        if (xQueueReceive(screen->lineQueue, &job, portMAX_DELAY)) {
+        if (xQueueReceive(screen->lineQueue, &job, portMAX_DELAY) && !screen->isDrawingUI) {
             renderDMA(screen, job);
         }
     }

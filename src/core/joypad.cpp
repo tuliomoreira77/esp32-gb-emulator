@@ -58,6 +58,8 @@ void Joypad::joypadJob(void* args) {
         if (buttonB == HIGH) {
             joypad->rawButtons &= 0b1101;
             joypad->keyPressed = true;
+
+            joypad->saveGame = buttonA != 0;
         }
 
         if (buttonRight == HIGH) {

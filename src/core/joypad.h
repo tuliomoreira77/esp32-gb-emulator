@@ -8,6 +8,7 @@ class Joypad {
 
 public:
     bool keyPressed = false;
+    bool saveGame = false;
 
 public:
     void init();

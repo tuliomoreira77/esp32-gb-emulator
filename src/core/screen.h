@@ -20,6 +20,9 @@ public:
     void init();
     void drawLine(uint8_t y, uint8_t* pixels);
     void drawLineSync(uint8_t y, uint8_t* pixels);
+    void requestDrawUI();
+    void endDrawUI();
+    void drawSaveUI();
 
     struct LineJob {
         uint8_t y;
@@ -40,6 +43,7 @@ private:
     TFT_eSPI tft;
     uint16_t colorArray[4];
     QueueHandle_t lineQueue = xQueueCreate(100, sizeof(LineJob));
+    bool isDrawingUI = false;
 
     int xOff = 0;
     int yOff = 0;

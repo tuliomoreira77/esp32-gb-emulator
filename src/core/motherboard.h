@@ -5,6 +5,7 @@
 #include "joypad.h"
 #include "bus.h"
 #include "cpu.h"
+#include "cpu_opt.h"
 #include "ppu.h"
 #include "timer.h"
 #include "memory_map.h"
@@ -15,8 +16,9 @@ class Motherboard {
         MemoryBus* memoryBus = nullptr;
         Screen* screen = nullptr;
         PPU* ppu = nullptr;
-        CPU* cpu = nullptr;
+        CPUOpt* cpu = nullptr;
         GameboyTimer* timer = nullptr;
+        FileSystem* fileSystem = nullptr;
         
         unsigned long cycles = 0;
 

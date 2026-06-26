@@ -39,18 +39,18 @@ InstructionDict::InstructionDict() {
     new(&dict[0xA3]) InstructionDefinition(InstructionGroup::AND, U8Reg::E,  U8Reg::A, 0, 1);
     new(&dict[0xA4]) InstructionDefinition(InstructionGroup::AND, U8Reg::H,  U8Reg::A, 0, 1);
     new(&dict[0xA5]) InstructionDefinition(InstructionGroup::AND, U8Reg::L,  U8Reg::A, 0, 1);
-    new(&dict[0xA6]) InstructionDefinition(InstructionGroup::AND, U8Reg::HL, U8Reg::A, 0, 1);
+    new(&dict[0xA6]) InstructionDefinition(InstructionGroup::AND, U8Reg::HL, U8Reg::A, 0, 2);
     new(&dict[0xA7]) InstructionDefinition(InstructionGroup::AND, U8Reg::A,  U8Reg::A, 0, 1);
     new(&dict[0xE6]) InstructionDefinition(InstructionGroup::AND, U8Reg::D8, U8Reg::A, 1, 2);
 
-    new(&dict[0xE9]) InstructionDefinition(InstructionGroup::JP, U8Reg::HL, U8Reg::X, 0, 1);
+    new(&dict[0xE9]) InstructionDefinition(InstructionGroup::JP, U8Reg::HL, U8Reg::X, 0, 2);
     new(&dict[0xC3]) InstructionDefinition(InstructionGroup::JP, U8Reg::D16, U8Reg::X, 2, 4);
     new(&dict[0xC2]) InstructionDefinition(InstructionGroup::JP, U8Reg::NZ, U8Reg::X, 2, 3);
     new(&dict[0xD2]) InstructionDefinition(InstructionGroup::JP, U8Reg::NC, U8Reg::X, 2, 3);
     new(&dict[0xCA]) InstructionDefinition(InstructionGroup::JP, U8Reg::Z, U8Reg::X, 2, 3);
     new(&dict[0xDA]) InstructionDefinition(InstructionGroup::JP, U8Reg::CR, U8Reg::X, 2, 3);
 
-    new(&dict[0x18]) InstructionDefinition(InstructionGroup::JPR, U8Reg::D16, U8Reg::X, 1, 2);
+    new(&dict[0x18]) InstructionDefinition(InstructionGroup::JPR, U8Reg::D16, U8Reg::X, 1, 3);
     new(&dict[0x20]) InstructionDefinition(InstructionGroup::JPR, U8Reg::NZ, U8Reg::X, 1, 2);
     new(&dict[0x30]) InstructionDefinition(InstructionGroup::JPR, U8Reg::NC, U8Reg::X, 1, 2);
     new(&dict[0x28]) InstructionDefinition(InstructionGroup::JPR, U8Reg::Z, U8Reg::X, 1, 2);
@@ -110,7 +110,7 @@ InstructionDict::InstructionDict() {
     new(&dict[0x24]) InstructionDefinition(InstructionGroup::INC, U8Reg::H,  U8Reg::X, 0, 1);
     new(&dict[0x2C]) InstructionDefinition(InstructionGroup::INC, U8Reg::L,  U8Reg::X, 0, 1);
     new(&dict[0x3C]) InstructionDefinition(InstructionGroup::INC, U8Reg::A,  U8Reg::X, 0, 1);
-    new(&dict[0x34]) InstructionDefinition(InstructionGroup::INC, U8Reg::HL, U8Reg::X, 0, 2);
+    new(&dict[0x34]) InstructionDefinition(InstructionGroup::INC, U8Reg::HL, U8Reg::X, 0, 3);
 
     new(&dict[0x03]) InstructionDefinition(InstructionGroup::INC16, U8Reg::BC, U8Reg::X, 0, 2);
     new(&dict[0x13]) InstructionDefinition(InstructionGroup::INC16, U8Reg::DE, U8Reg::X, 0, 2);
@@ -224,7 +224,7 @@ InstructionDict::InstructionDict() {
     new(&dict[0x31]) InstructionDefinition(InstructionGroup::LD16, U8Reg::SP, U8Reg::D16, 2, 3);
 
     new(&dict[0x08]) InstructionDefinition(InstructionGroup::LDS, U8Reg::D16, U8Reg::SP, 2, 5);
-    new(&dict[0xf9]) InstructionDefinition(InstructionGroup::LDS, U8Reg::SP, U8Reg::HL, 0, 1);
+    new(&dict[0xf9]) InstructionDefinition(InstructionGroup::LDS, U8Reg::SP, U8Reg::HL, 0, 2);
     new(&dict[0xf8]) InstructionDefinition(InstructionGroup::LDS, U8Reg::HL, U8Reg::SPE, 1, 3);
 
     new(&dict[0xf0]) InstructionDefinition(InstructionGroup::LDH, U8Reg::A, U8Reg::D8, 1, 3);

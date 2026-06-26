@@ -19,7 +19,6 @@ void setup() {
   memMap.bank1 = (uint8_t*) heap_caps_malloc(0x4000, MALLOC_CAP_8BIT);
   memMap.highMemory = (uint8_t*) heap_caps_malloc(0x8000, MALLOC_CAP_8BIT);
   memMap.extMem = (uint8_t*) heap_caps_malloc(0x8000, MALLOC_CAP_8BIT);
-  memset(memMap.extMem, 0, 0x8000);
 
   memMap.bank2 = (uint8_t*) heap_caps_malloc(0x4000, MALLOC_CAP_8BIT);
   memMap.bank3 = (uint8_t*) heap_caps_malloc(0x4000, MALLOC_CAP_8BIT);
@@ -37,25 +36,38 @@ void setup() {
 
   fileSystem = new FileSystem();
   motherboard = new Motherboard(joypad, screen, fileSystem, &memMap);
-  Serial.begin(115200);
+  //Serial.begin(115200);
 
-  bool fileSystemOk = fileSystem->init("/pokemon_red.gb");
+  bool fileSystemOk = fileSystem->init("/pokemon_red.gb", "/pokemon_red.sav");
 
   if(!fileSystemOk) {
     while (true) { delay(1000); }
   }
+
+  memset(memMap.extMem, 0, 0x8000);
+  fileSystem->readSave(0x8000, memMap.extMem);
 
   motherboard->insertCartridge();
   
 }
 
 void loop() {
-  motherboard->runCycle();
+  //motherboard->runCycle();
+
+  if (joypad->saveGame) {
+    screen->requestDrawUI();
+    vTaskDelay(pdMS_TO_TICKS(100));
+    screen->drawSaveUI();
+    fileSystem->writeSave(0x8000, memMap.extMem);
+    vTaskDelay(pdMS_TO_TICKS(2000));
+    screen->endDrawUI();
+    joypad->saveGame = false;
+  }
   
-  unsigned long iTime = millis();
-  for(unsigned long count =0; count < 1000000;) {
+  //unsigned long iTime = millis();
+  for(uint32_t count =0; count < 1000000;) {
     count = count + motherboard->runCycle();
   }
-  Serial.println(millis() - iTime);
+  //Serial.println(millis() - iTime);
   
 }

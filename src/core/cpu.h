@@ -25,7 +25,7 @@ class CPU {
         InstructionDict *instrucionDict;
         Instruction *currentInstruction;
 
-        uint16_t interruptVector[5] = {0x40,0x50,0x48,0x58,0x60};
+        uint16_t interruptVector[5] = {0x40,0x48,0x50,0x58,0x60};
         typedef void (CPU::*InstructionHandler)(Instruction*);
 
     public:
@@ -92,7 +92,6 @@ class CPU {
         void enableInterrupts(Instruction* instruction);
         void halt(Instruction* instruction);
         void reti(Instruction* instruction);
-
 
         void basicLoad(Instruction* instruction);
         void pointerLoad(Instruction* instruction);
