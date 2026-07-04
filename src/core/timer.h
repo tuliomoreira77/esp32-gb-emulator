@@ -11,7 +11,7 @@ class GameboyTimer {
         uint16_t timerCounterCycle = 0;
         uint16_t timerStepLimit = 0;
 
-        uint32_t clockMap[4] = {4096, 262144, 65536, 16384};
+        uint32_t clockMap[4] = {1024, 16, 64, 256};
 
         MemoryBus* bus = nullptr;
 

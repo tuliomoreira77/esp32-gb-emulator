@@ -1,15 +1,33 @@
 #include "bus.h"
 #include <Arduino.h>
 
+#define ROM_BANK_CACHE_SIZE 7
+
 MemoryBus::MemoryBus(Joypad* jp, FileSystem* fileSystem, MemoryMap* memoryMap) {
     this->joypad = jp;
     this->fileSystem = fileSystem;
     this->memoryMap = memoryMap;
 
-    this->highMemory = memoryMap->highMemory - 0x8000; //offset addr to not need to calculate this every time
+    this->vramBanks[0] = memoryMap->vram0;
+    this->vramBanks[1] = memoryMap->vram1;
+    this->workingRamBanks[0] = memoryMap->workRam0;
+    this->workingRamBanks[1] = memoryMap->workRam1;
+    this->workingRamBanks[2] = memoryMap->workRam2;
+    this->workingRamBanks[3] = memoryMap->workRam3;
+    this->workingRamBanks[4] = memoryMap->workRam4;
+    this->workingRamBanks[5] = memoryMap->workRam5;
+    this->workingRamBanks[6] = memoryMap->workRam6;
+    this->workingRamBanks[7] = memoryMap->workRam7;
+
     this->bank0 = memoryMap->bank0;
-    this->bank1 = memoryMap->bank1 - 0x4000;  //offset addr to not need to calculate this every time
-    this->extMemory = memoryMap->extMem;
+    this->bank1 = memoryMap->bank1 - ROM_BANK_N_START;  //offset addr to not need to calculate this every time
+    this->vramPointer = memoryMap->vram0 - VRAM_BEGIN;
+    this->extMemory = memoryMap->extMem - EXTERNAL_RAM_BEGIN;
+    this->workingRam0 = memoryMap->workRam0 - WORK_RAM_0_BEGIN;
+    this->workingRamPointer = memoryMap->workRam1 - WORK_RAM_N_BEGIN;
+    this->highMemory = memoryMap->highMemory - OAM_BEGIN; //offset addr to not need to calculate this every time
+
+    this->colorRam = memoryMap->colorRam;
 
     this->bankCache[0].bankPointer = memoryMap->bank1;
     this->bankCache[1].bankPointer = memoryMap->bank2;
@@ -23,95 +41,173 @@ MemoryBus::MemoryBus(Joypad* jp, FileSystem* fileSystem, MemoryMap* memoryMap) {
 
 void MemoryBus::insertCartridge() {
     this->fileSystem->readRom(0, 0x4000, bank0);
-
-    this->fileSystem->readRom(0x4000, 0x4000, bankCache[0].bankPointer);
-    bankCache[0].bankNumber = 1;
-
-    this->fileSystem->readRom(0x8000, 0x4000, bankCache[1].bankPointer);
-    bankCache[1].bankNumber = 2;
-
-    this->fileSystem->readRom(0xC000, 0x4000, bankCache[2].bankPointer);
-    bankCache[2].bankNumber = 3;
-
-    this->fileSystem->readRom(0x10000, 0x4000, bankCache[3].bankPointer);
-    bankCache[3].bankNumber = 4;
-
-    this->fileSystem->readRom(0x14000, 0x4000, bankCache[4].bankPointer);
-    bankCache[4].bankNumber = 5;
-
-    this->fileSystem->readRom(0x18000, 0x4000, bankCache[5].bankPointer);
-    bankCache[5].bankNumber = 6;
-
-    this->fileSystem->readRom(0x1C000, 0x4000, bankCache[6].bankPointer);
-    bankCache[6].bankNumber = 7;
-
-    this->fileSystem->readRom(0x20000, 0x4000, bankCache[7].bankPointer);
-    bankCache[7].bankNumber = 8;
-
     this->bank1 = memoryMap->bank1 - 0x4000;
+
+    uint32_t romAddr = 0x4000;
+    for(int i=0; i < ROM_BANK_CACHE_SIZE; i++) {
+        this->fileSystem->readRom(romAddr, 0x4000, bankCache[i].bankPointer);
+        bankCache[i].bankNumber = i + 1;
+        romAddr += 0x4000;
+    }
 
     uint8_t gameType = bank0[0x147];
     if (gameType == 0x00) {
         this->mbc = new MBC0();
     }
-    if (gameType == 0x13) {
+    if (gameType == 0x13 || gameType == 0x10) {
         this->mbc = new MBC3();
     }
+
+    highMemory[HDMA5] = 0xFF;
 }
 
 uint8_t IRAM_ATTR MemoryBus::readByte(uint16_t addr) {
-    if(addr >= 0x8000) {
-        if (addr >= EXTERNAL_RAM_BEGIN && addr <= EXTERNAL_RAM_END)
-            return extMemory[mbc->ramAddr + (addr - EXTERNAL_RAM_BEGIN)];
-
-        if (addr == JOYPAD_REG)
-            return wireJoypad();
-
-        return highMemory[addr];
+    if(addr <= ROM_BAN_0_END) {
+        return bank0[addr];
     }
-    if(addr >= 0x4000) 
+    if(addr <= ROM_BANK_N_END) {
         return bank1[addr];
-
-    return bank0[addr];
+    }
+    if(addr <= WORK_RAM_N_END) {
+        if (addr <= VRAM_END) {
+            return vramPointer[addr];
+        }
+        if (addr <= EXTERNAL_RAM_END) {
+            if (mbc->rtcRegister != 0x00) {
+                uint8_t decodedRtc = decodeRTC();
+                return decodedRtc;
+            }
+            return extMemory[mbc->ramAddr + addr];
+        }
+        if (addr <= WORK_RAM_0_END) {
+            return workingRam0[addr];
+        }
+        if (addr <= WORK_RAM_N_END) {
+            return workingRamPointer[addr];
+        }
+    }
+    switch(addr) {
+        case JOYPAD_REG:
+            return wireJoypad();
+        case BGPD:
+            return colorRam[highMemory[BGPI] & 0x3F];
+        case OBPD:
+            return colorRam[highMemory[OBPI] & 0x3F + 64];
+        default:
+            return highMemory[addr];
+    }
 }
 
 uint8_t* IRAM_ATTR MemoryBus::fetchBlock(uint16_t addr) {
-    if(addr >= 0x8000) {
-        if (addr >= EXTERNAL_RAM_BEGIN && addr <= EXTERNAL_RAM_END)
-            return &extMemory[mbc->ramAddr + (addr - EXTERNAL_RAM_BEGIN)];
-        
-        return &highMemory[addr];
+    if(addr <= ROM_BAN_0_END) {
+        return &bank0[addr];
     }
-
-    if(addr >= 0x4000) 
+    if(addr <= ROM_BANK_N_END) {
         return &bank1[addr];
-
-    return &bank0[addr];
+    }
+    if(addr <= WORK_RAM_N_END) {
+        if (addr <= VRAM_END) {
+            return &vramPointer[addr];
+        }
+        if (addr <= EXTERNAL_RAM_END) { //May Can RTC BUG this part??
+            return &extMemory[mbc->ramAddr + addr];
+        }
+        if (addr <= WORK_RAM_0_END) {
+            return &workingRam0[addr];
+        }
+        if (addr <= WORK_RAM_N_END) {
+            return &workingRamPointer[addr];
+        }
+    }
+    return &highMemory[addr];
 }
 
 uint8_t IRAM_ATTR MemoryBus::readVRam(uint16_t addr) {
+    return vramPointer[addr];
+}
+
+uint8_t IRAM_ATTR MemoryBus::readVRamBank(uint16_t addr, uint8_t bank) {
+    return vramBanks[bank][addr];
+}
+
+uint8_t IRAM_ATTR MemoryBus::readHighRam(uint16_t addr) {
     return highMemory[addr];
 }
 
 void IRAM_ATTR MemoryBus::writeByte(uint16_t addr, uint8_t value) {
     if (addr >= 0x8000) {
-        if (addr >= EXTERNAL_RAM_BEGIN && addr <= EXTERNAL_RAM_END) {
-            extMemory[mbc->ramAddr + (addr - EXTERNAL_RAM_BEGIN)] = value;
+        if (addr <= VRAM_END) {
+            vramPointer[addr] = value;
             return;
         }
 
-        if (addr == DMA) {
-            dma(value);
+        if (addr <= EXTERNAL_RAM_END) {
+            extMemory[mbc->ramAddr + addr] = value;
             return;
         }
 
-        if (addr == TIMER_DIV) {
-            highMemory[addr] = 0x00;
+        if (addr <= WORK_RAM_0_END) {
+            workingRam0[addr] = value;
             return;
         }
         
-        highMemory[addr] = value;
-        return;
+        if (addr <= WORK_RAM_N_END) {
+            workingRamPointer[addr] = value;
+            return;
+        }
+
+        if (addr == SC && (value == 0x80 || value == 0x81)) {
+            highMemory[SC] = value;
+            wireSerial(value);
+            return;
+        }
+
+        switch(addr) {
+            case DMA:
+                highMemory[DMA] = value;
+                dma(value);
+                return;
+
+            case TIMER_DIV:
+                highMemory[TIMER_DIV] = 0x00;
+                return;
+
+            case HDMA5:
+                hdma(value);
+                return;
+            
+            case VBK:
+                vramPointer = vramBanks[value & 0x01] - VRAM_BEGIN;
+                highMemory[VBK] = value;
+                return;
+            
+            case WBK: {
+                uint8_t bank = value & 0b111;
+                bank = bank != 0 ? bank : 0x1;
+                workingRamPointer = workingRamBanks[bank] - WORK_RAM_N_BEGIN;
+                highMemory[WBK] = value;
+                return;
+            }
+
+            case BGPD: {
+                uint8_t index = highMemory[BGPI];
+                colorRam[index & 0x3F] = value;
+                highMemory[BGPI] += index >> 7;
+                return;
+            }
+
+            case OBPD: {
+                uint8_t index = highMemory[OBPI];
+                colorRam[(index & 0x3F) + 64] = value;
+                highMemory[OBPI] += index >> 7;
+                return;
+            }
+
+            default:
+                highMemory[addr] = value;
+                return;
+        }
+
     }
 
     if (addr < 0x2000)
@@ -143,7 +239,7 @@ void MemoryBus::changeRomBank(uint8_t bank) {
     }
 
     BankCacheControl* leastUsedBank = &bankCache[0];
-    for(int i = 0; i < 8; i++) {
+    for(int i = 0; i < ROM_BANK_CACHE_SIZE; i++) {
         if(bankCache[i].bankNumber == bank) {
             bankCache[i].lastUsed = ++accessCounter;
             this->bank1 = bankCache[i].bankPointer - 0x4000;
@@ -161,9 +257,25 @@ void MemoryBus::changeRomBank(uint8_t bank) {
     this->bank1 = leastUsedBank->bankPointer - 0x4000;
 }
 
+uint8_t MemoryBus::decodeRTC() {
+    time_t timestamp = time(NULL);
+    switch (mbc->rtcRegister) {
+        case 0x08: return timestamp % 60;
+        case 0x09: return (timestamp/60) % 60;
+        case 0x0A: return (timestamp/3600) % 24;
+        case 0x0B: return (timestamp/86400) % 256;
+        case 0x0C: return 0x00;
+        default: return 0x00;
+    }
+}
+
+void IRAM_ATTR MemoryBus::writeHighMemory(uint16_t addr, uint8_t value) {
+    highMemory[addr] = value;
+}
+
 void IRAM_ATTR MemoryBus::incTimerDiv() {
     uint8_t v = highMemory[TIMER_DIV];
-    highMemory[TIMER_DIV] = (v + 1) & 0xFF;
+    highMemory[TIMER_DIV] = v + 1;
 }
 
 void IRAM_ATTR MemoryBus::incTimerCounter() {
@@ -236,4 +348,108 @@ void IRAM_ATTR MemoryBus::dma(uint8_t addr) {
 
     for (int i = 0; i < 160; i++)
         highMemory[dst++] = readByte(src++);
+}
+
+void MemoryBus::hdma(uint8_t value) {
+    uint8_t mode = calculator.verifyBit(value, 7);
+    uint16_t source = (highMemory[HDMA1] << 8 | highMemory[HDMA2]) & 0xFFF0;
+    uint16_t dest = ((highMemory[HDMA3] << 8 | highMemory[HDMA4]) & 0x1FF0) + VRAM_BEGIN;
+    uint16_t size = ((value & 0x7F) + 1) * 0x10;
+
+    if (mode == 0 && highMemory[HDMA5] != 0xFF) {
+        highMemory[HDMA5] = 0xFF;
+        return;
+    }
+    if (mode == 0) {
+        for(int i=0; i<size; i++) {
+            vramPointer[dest] = readByte(source);
+            source += 1;
+            dest += 1;
+        }
+        highMemory[HDMA5] = 0xFF;
+    } else {
+        highMemory[HDMA5] = size;
+        hdmaDestAddr = dest;
+        hdmaSourceAddr = source;
+    }
+}
+
+void MemoryBus::stepHdma() {
+    if (highMemory[HDMA5] != 0xFF) {
+        return;
+    }
+
+    for(int i=0; i<0x10; i++) {
+        vramPointer[hdmaDestAddr] = readByte(hdmaSourceAddr);
+        hdmaDestAddr += 1;
+        hdmaSourceAddr += 1;
+    }
+    highMemory[HDMA5] -= 0x10;
+
+    if (highMemory[HDMA5] == 0) {
+        highMemory[HDMA5] = 0xFF;
+    }
+}
+
+void MemoryBus::wireSerial(uint8_t value) {
+    uint8_t receivedByte = executeTrade(highMemory[SB]);
+    if (calculator.verifyBit(highMemory[SC], 7)) {
+        highMemory[SB] = receivedByte;
+        highMemory[SC] = calculator.resetBit(highMemory[SC], 7);
+        requestSerialInterrupt();
+    }
+}
+
+uint8_t MemoryBus::executeTrade(uint8_t value) {
+    switch(tradeControl.syncState) {
+        case 1:
+            if (value == 0x01) {
+                return 0x02;
+            }
+            if (value == 0x61) {
+                return 0x61;
+            }
+            if (value == 0xD1) {
+                tradeControl.syncState = 2;
+                tradeControl.byteCounter = 0;
+                return 0xD1;
+            }
+            return 0x00;
+
+        case 2:
+            if (tradeControl.tradeState == 1 && value == 0x00) {
+                tradeControl.tradeState = 2;
+                return 0xFD;
+            }
+            if (tradeControl.tradeState == 2 && value == 0xFD) {
+                tradeControl.tradeState = 3;
+                return 0xFD;
+            }
+            if (tradeControl.tradeState == 3 && value != 0xFD) {
+                tradeControl.tradeState = 4;
+                return value;
+            }
+            if (tradeControl.tradeState == 4 && value == 0xFD) {
+                tradeControl.tradeState = 5;
+                return 0xFD;
+            }
+            if (tradeControl.tradeState == 5 && value != 0xFD) {
+                tradeControl.tradeState = 6;
+                tradeControl.byteCounter += 1;
+                return value;
+            }
+            if (tradeControl.tradeState == 6) {
+                tradeControl.byteCounter += 1;
+                if (tradeControl.byteCounter >= tradeControl.dataSize) {
+                    tradeControl.syncState = 3;
+                    tradeControl.byteCounter = 0;
+                }
+                return value;
+            }
+            return value;
+        
+        case 3:
+            return value;
+    }
+    return 0x00;
 }

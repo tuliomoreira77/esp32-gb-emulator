@@ -21,8 +21,8 @@ void PPU::step(uint16_t newCycle) {
 
     if (changed) {
         actualMode = newMode;
-        updateStat();
         getLcdControl();
+        updateStat();
 
         if (actualMode == 1) {
             renderFrame = frameRendered % FRAME_SKIP_DIVIDER == 0;
@@ -41,15 +41,15 @@ void PPU::step(uint16_t newCycle) {
     }
 
     if (cycles >= 456) {
+        getLcdControl();
+        bus->writeByte(LCD_Y, lineRendered);
         statLineTrigger = false;
         lineRendered += 1;
-        updateStat();
-        getLcdControl();
         if (lineRendered > 153) {
             lineRendered = 0;
             frameRendered++;
         }
-        cycles = cycles % 456;
+        cycles = cycles - 456;
     }
 }
 
@@ -73,7 +73,8 @@ uint8_t IRAM_ATTR PPU::getScanlineMode() {
 uint8_t* PPU::renderScanLine() {
     uint8_t bgOffset = renderBgLine();
     uint8_t* offsetBgBuffer = &bgBuffer[bgOffset % 8];
-    renderObjLine(offsetBgBuffer);
+    if (decodedLcdControlRegister[1])
+        renderObjLine(offsetBgBuffer);
     return offsetBgBuffer;
 }
 
@@ -94,8 +95,8 @@ uint8_t PPU::renderBgLine() {
         return 0;
     }
 
-    uint8_t yOffset = bus->readVRam(BG_SCROLL_Y);
-    uint8_t xOffset = bus->readVRam(BG_SCROLL_X);
+    uint8_t yOffset = bus->readHighRam(BG_SCROLL_Y);
+    uint8_t xOffset = bus->readHighRam(BG_SCROLL_X);
 
     uint8_t viewportLine = (lineRendered + yOffset) % 256;
     uint8_t tileLineOffset = viewportLine % 8;
@@ -122,13 +123,13 @@ uint8_t PPU::renderBgLine() {
 }
 
 uint8_t PPU::renderWindowLine() {
-    uint8_t yOffset = bus->readVRam(W_SCROLL_Y);
+    uint8_t yOffset = bus->readHighRam(W_SCROLL_Y);
 
     if (yOffset > lineRendered) {
         return 160;
     }
 
-    int xOffset = bus->readVRam(W_SCROLL_X) - 7;
+    int xOffset = bus->readHighRam(W_SCROLL_X) - 7;
     if (xOffset < 0) {
         xOffset = 0;
     }
@@ -148,14 +149,14 @@ uint8_t PPU::renderWindowLine() {
         uint16_t tileMapAddr = (tileMapStart + i) + (tileMapOffset * 32);
         uint8_t tileIndex = bus->readVRam(tileMapAddr);
         uint16_t tileAddr = tileAddrResolver(tileIndex, tileAddressing);
-        readTileLine(tileAddr, tileLineOffset, 8, &bgBuffer[(i + initialTile)*8], palleteMap0);
+        readTileLine(tileAddr, tileLineOffset, 8, &bgBuffer[(i + initialTile)*8], defaultPallete);
     }
 
     return xOffset;
 }
 
 void PPU::buildPalleteMap(uint16_t addr, uint8_t* palleteMap) {
-    uint8_t pallete = bus->readVRam(addr);
+    uint8_t pallete = bus->readHighRam(addr);
     palleteMap[0] = pallete & 0b11;
     palleteMap[1] = pallete >> 2 & 0b11;
     palleteMap[2] = pallete >> 4 & 0b11;
@@ -202,12 +203,12 @@ void PPU::oamScan() {
             break;
         }
 
-        uint8_t y = bus->readVRam(addr);
+        uint8_t y = bus->readHighRam(addr);
         if(lineRendered >= (y - 16) && lineRendered < (y - 16 + objSize)) {
             objectsBuffer[objectsBufferSize].yPosition = y;
-            objectsBuffer[objectsBufferSize].xPosition = bus->readVRam(addr + 1);
-            objectsBuffer[objectsBufferSize].tileIndex = bus->readVRam(addr + 2);
-            objectsBuffer[objectsBufferSize].attributes = bus->readVRam(addr + 3);
+            objectsBuffer[objectsBufferSize].xPosition = bus->readHighRam(addr + 1);
+            objectsBuffer[objectsBufferSize].tileIndex = bus->readHighRam(addr + 2);
+            objectsBuffer[objectsBufferSize].attributes = bus->readHighRam(addr + 3);
             objectsBuffer[objectsBufferSize].extendedSize = objExtended;
             objectsBuffer[objectsBufferSize].tineLine = lineRendered - (y - 16);
             objectsBufferSize += 1;
@@ -262,14 +263,13 @@ void PPU::readTileLine(uint16_t tileAddr, uint8_t lineIndex, uint8_t size, uint8
 
 
 void PPU::updateStat() {
-    uint8_t lyc  = bus->readVRam(LCD_YC);
-    uint8_t ly   = bus->readVRam(LCD_Y);
-    uint8_t stat = bus->readVRam(LCD_STAT);
+    uint8_t lyc  = bus->readHighRam(LCD_YC);
+    uint8_t stat = bus->readHighRam(LCD_STAT);
 
     uint8_t modeInd = 0x00;
     bool triggerInt = false;
 
-    if (lyc == ly && calculator->verifyBit(stat, 6) && !statLineTrigger) {
+    if (lyc == lineRendered && calculator->verifyBit(stat, 6) && !statLineTrigger) {
         triggerInt = true;
         statLineTrigger = true;
     }
@@ -293,10 +293,9 @@ void PPU::updateStat() {
         modeInd = 3;
     }
 
-    uint8_t lyLyc = (lyc == ly) ? 0b100 : 0x0;
+    uint8_t lyLyc = (lyc == lineRendered) ? 0b100 : 0x0;
 
     stat = (stat & 0xF8) | lyLyc | modeInd;
-    bus->writeByte(LCD_Y, lineRendered);
     bus->writeByte(LCD_STAT, stat);
 
     if (triggerInt) {
@@ -305,7 +304,7 @@ void PPU::updateStat() {
 }
 
 void PPU::getLcdControl() {
-    uint8_t controlRegister = bus->readVRam(LCD_CONTROL);
+    uint8_t controlRegister = bus->readHighRam(LCD_CONTROL);
     if (controlRegister != rawLcdControlRegister) {
         rawLcdControlRegister = controlRegister;
         decodedLcdControlRegister[7] = calculator->verifyBit(controlRegister, 7); //LCD_ENABLE

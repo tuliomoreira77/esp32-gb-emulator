@@ -36,7 +36,7 @@ void Screen::init() {
     dmaBuffer.bufferB = (uint16_t*) heap_caps_malloc(bufferSize, MALLOC_CAP_DMA);
     dmaBuffer.cursor = dmaBuffer.bufferA;
 
-    xTaskCreatePinnedToCore(displayJob, "display", 2048, this, 5, nullptr, 0);
+    xTaskCreatePinnedToCore(displayJob, "display", 2048, this, 24, nullptr, 0);
 }
 
 void Screen::requestDrawUI() {
@@ -108,6 +108,7 @@ void Screen::renderDMA(Screen* screen, LineJob job) {
         uint16_t* readerBuffer = screen->dmaBuffer.pingPong == false ? screen->dmaBuffer.bufferA : screen->dmaBuffer.bufferB;
         screen->dmaBuffer.pingPong = !screen->dmaBuffer.pingPong;
 
+        screen->tft.dmaWait();
         screen->tft.setAddrWindow(
             screen->xOff,
             screen->yOff + screen->dmaBuffer.y0,
@@ -119,6 +120,10 @@ void Screen::renderDMA(Screen* screen, LineJob job) {
             SCALED_WIDTH * screen->dmaBuffer.counter
         );
         screen->dmaBuffer.counter = 0;
+    }
+
+    if(y1 == SCALED_HEIGHT) {
+        vTaskDelay(1);
     }
 
 }
@@ -138,7 +143,7 @@ void Screen::displayJobNoDMA(void* args) {
             int y1 = screen->yMap[job.y + 1];
             int linesToDraw = y1 - y0;
 
-            screen->tft.startWrite();
+            screen->tft.dmaWait();
             screen->tft.setAddrWindow(
                 screen->xOff,
                 screen->yOff + y0,

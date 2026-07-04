@@ -1,6 +1,7 @@
 #pragma once
 
 #include <LittleFS.h>
+#include <sys/time.h>
 
 
 class FileSystem {
@@ -16,6 +17,8 @@ class FileSystem {
         bool readRom(uint32_t offset, size_t bufferSize, uint8_t* buffer);
         bool readSave(size_t bufferSize, uint8_t* buffer);
         bool writeSave(size_t bufferSize, uint8_t* buffer);
+        time_t readRTC();
+        void writeRTC(time_t val);
 
     
 };

@@ -40,16 +40,18 @@ uint16_t IRAM_ATTR CPUOpt::executeStep() {
             isHalt = false;
         }
 
-        clockCycle += 1;
+        clockCycle += 2;
+        return clockCycle;
     } else {
         if (pendingInterrupts != 0 && interruptEnable) {
             handleInterrupts(pendingInterrupts);
+            return clockCycle;
         }
 
         handleInstruction();
         handleInstruction();
+        return clockCycle;
     }
-    return clockCycle;
 }
 
 inline IRAM_ATTR void CPUOpt::handleInstruction() {
@@ -583,7 +585,7 @@ inline IRAM_ATTR void CPUOpt::handleInstruction() {
 }
 
 void CPUOpt::noOp(uint8_t* instr) {
-
+    clockCycle += 2;
 }
 
 /* ADD BLOCK */
@@ -1759,7 +1761,7 @@ void CPUOpt::halt(uint8_t* instr) {
             isHalt = true;
         }
     }
-    clockCycle= clockCycle + 1;
+    clockCycle = clockCycle + 1;
 }
 
 void CPUOpt::reti(uint8_t* instr) {
@@ -3739,7 +3741,7 @@ uint16_t CPUOpt::popFromStack() {
     return (static_cast<uint16_t>(bytes[1])) << 8 | static_cast<uint16_t>(bytes[0]);
 }
 
-void CPUOpt::handleInterrupts(uint8_t pendingInterrupts) {
+inline IRAM_ATTR void CPUOpt::handleInterrupts(uint8_t pendingInterrupts) {
     uint8_t interruptIndex = getFirstInterrupt(pendingInterrupts);
     if (interruptIndex == 7) {
         return;
@@ -3752,7 +3754,7 @@ void CPUOpt::handleInterrupts(uint8_t pendingInterrupts) {
     programCounter = interruptVector[interruptIndex];
 }
 
-uint8_t CPUOpt::getFirstInterrupt(uint8_t pendingInterrupts) {
+inline IRAM_ATTR uint8_t CPUOpt::getFirstInterrupt(uint8_t pendingInterrupts) {
     for(uint8_t i=0; i<5; i++) {
         if ((pendingInterrupts & 0x01) !=0) {
             return i;

@@ -25,7 +25,7 @@ CPU::CPU(MemoryBus *bus) {
     bus->writeByte(LCD_STAT, 0x81);
 };
 
-/*
+
 void CPU::breakPoint(Instruction* instruction) {
     uint16_t points[] = {0xC88F};
     for(int i=0; i < 1; i++) {
@@ -37,7 +37,7 @@ void CPU::breakPoint(Instruction* instruction) {
 }
 
 void CPU::debugReg() {
-    Serial.print("NEXT PC: ");
+    Serial.print("PC: ");
     Serial.println(programCounter, HEX);
 
     Serial.print("AF: ");
@@ -69,7 +69,7 @@ void CPU::debugInstr(Instruction* instruction) {
     Serial.print(instruction->operands[1], HEX);
     Serial.println("");
 }
-*/
+
 
 
 uint16_t CPU::executeStep() {
@@ -91,7 +91,6 @@ uint16_t CPU::executeStep() {
         if (pendingInterrupts != 0 && interruptEnable) {
             handleInterrupts(pendingInterrupts);
         }
-
         fetchInstruction();
         instructionRouter(currentInstruction);
 

@@ -12,6 +12,7 @@ static constexpr int Y_OFFSET = 0;
 
 class Screen {
 public:
+    static constexpr int PALLETE_MAP_SIZE = 128;
     static constexpr int SCALED_WIDTH = 240;
     static constexpr int SCALED_HEIGHT = 216;
     static constexpr int BUFFER_SIZE_IN_LINES = 20;
@@ -27,6 +28,7 @@ public:
     struct LineJob {
         uint8_t y;
         uint8_t buffer[GB_WIDTH];
+        uint8_t palleteMap[PALLETE_MAP_SIZE];
     };
 
     struct DMABuffer {
@@ -42,7 +44,7 @@ public:
 private:
     TFT_eSPI tft;
     uint16_t colorArray[4];
-    QueueHandle_t lineQueue = xQueueCreate(100, sizeof(LineJob));
+    QueueHandle_t lineQueue = xQueueCreate(50, sizeof(LineJob));
     bool isDrawingUI = false;
 
     int xOff = 0;

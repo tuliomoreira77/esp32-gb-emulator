@@ -40,3 +40,22 @@ bool FileSystem::writeSave(size_t bufferSize, uint8_t* buffer) {
     }
     return false;
 }
+
+time_t FileSystem::readRTC() {
+    fs::File file = LittleFS.open("/rtc.data", FILE_READ);
+    if (file) {
+        time_t rtcRegister;
+        file.read((uint8_t*) &rtcRegister, sizeof(rtcRegister));
+        file.close();
+        return rtcRegister;
+    }
+    return 1782570000u;
+}
+
+void FileSystem::writeRTC(time_t val) {
+    fs::File file = LittleFS.open("/rtc.data", FILE_WRITE);
+    if (file) {
+        file.write((uint8_t*) &val, sizeof(val));
+        file.close();
+    }
+}
