@@ -11,9 +11,12 @@
 #include "memory_map.h"
 
 class Motherboard {
+    public:
+    
+        MemoryBus* memoryBus = nullptr;
     private:
         Joypad* joypad = nullptr;
-        MemoryBus* memoryBus = nullptr;
+        
         Screen* screen = nullptr;
         PPU* ppu = nullptr;
         CPUOpt* cpu = nullptr;

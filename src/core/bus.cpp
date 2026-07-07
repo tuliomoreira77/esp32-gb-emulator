@@ -8,8 +8,8 @@ MemoryBus::MemoryBus(Joypad* jp, FileSystem* fileSystem, MemoryMap* memoryMap) {
     this->fileSystem = fileSystem;
     this->memoryMap = memoryMap;
 
-    this->vramBanks[0] = memoryMap->vram0;
-    this->vramBanks[1] = memoryMap->vram1;
+    this->vramBanks[0] = memoryMap->vram0 - VRAM_BEGIN;
+    this->vramBanks[1] = memoryMap->vram1 - VRAM_BEGIN;
     this->workingRamBanks[0] = memoryMap->workRam0;
     this->workingRamBanks[1] = memoryMap->workRam1;
     this->workingRamBanks[2] = memoryMap->workRam2;
@@ -177,7 +177,7 @@ void IRAM_ATTR MemoryBus::writeByte(uint16_t addr, uint8_t value) {
                 return;
             
             case VBK:
-                vramPointer = vramBanks[value & 0x01] - VRAM_BEGIN;
+                vramPointer = vramBanks[value & 0x01];
                 highMemory[VBK] = value;
                 return;
             
@@ -229,7 +229,7 @@ void IRAM_ATTR MemoryBus::writeByte(uint16_t addr, uint8_t value) {
     }
 }
 
-void MemoryBus::changeRomBank(uint8_t bank) {
+void IRAM_ATTR MemoryBus::changeRomBank(uint8_t bank) {
     bank = bank == 0 ? 1 : bank;
 
     uint32_t actualAddr = mbc->romAddr;
@@ -375,7 +375,7 @@ void MemoryBus::hdma(uint8_t value) {
 }
 
 void MemoryBus::stepHdma() {
-    if (highMemory[HDMA5] != 0xFF) {
+    if (highMemory[HDMA5] == 0xFF) {
         return;
     }
 

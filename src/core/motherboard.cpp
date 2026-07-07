@@ -23,9 +23,8 @@ uint32_t Motherboard::runCycle() {
     }
 
     uint16_t mCycles = cpu->executeStep();
-    uint16_t globalCycles = mCycles * 4;
+    uint16_t globalCycles = mCycles << 2;
     timer->step(globalCycles);
-    
     ppu->step(globalCycles);
 
     return mCycles;

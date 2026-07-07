@@ -47,7 +47,7 @@ class PPU {
     private:
         void getLcdControl();
         uint16_t tileAddrResolver(uint8_t tileIndex, bool isSigned);
-        void readTileLine(uint16_t tileAddr, uint8_t lineIndex, uint8_t size, uint8_t* buffer, uint8_t* pallete);
+        void readTileLine(uint16_t tileAddr, uint8_t lineIndex, uint8_t size, uint8_t* buffer, uint8_t palleteMask, uint8_t attributes);
         uint8_t getScanlineMode();
         void updateStat();
         uint8_t renderBgLine();

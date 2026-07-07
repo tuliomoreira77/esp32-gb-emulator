@@ -14,7 +14,7 @@ CPUOpt::CPUOpt(MemoryBus *bus) {
 
     this->bus = bus;
 
-    registers->setAF(0x01B0);
+    registers->setAF(0x11B0);
     registers->setBC(0x0013);
     registers->setDE(0x00D8);
     registers->setHL(0x014D);
@@ -28,30 +28,31 @@ CPUOpt::CPUOpt(MemoryBus *bus) {
 
 uint16_t IRAM_ATTR CPUOpt::executeStep() {
     clockCycle = 0;
-    uint8_t pendingInterrupts = bus->verifyPendingInterrupts();
-
-    if (isHalt == true) {
-        if (pendingInterrupts != 0 && interruptEnable) {
+    uint8_t pendingInterrupts = 0;
+    if (interruptEnable || isHalt) {
+        pendingInterrupts = bus->verifyPendingInterrupts();
+    }
+    if (isHalt) {
+        if (pendingInterrupts != 0) {
             isHalt = false;
-            handleInterrupts(pendingInterrupts);
-        }
-
-        if (pendingInterrupts !=0 && !interruptEnable) {
-            isHalt = false;
-        }
-
-        clockCycle += 2;
-        return clockCycle;
-    } else {
-        if (pendingInterrupts != 0 && interruptEnable) {
-            handleInterrupts(pendingInterrupts);
+            if (interruptEnable) {
+                handleInterrupts(pendingInterrupts);
+                return clockCycle; 
+            }
+        } else {
+            clockCycle += 4;
             return clockCycle;
         }
-
-        handleInstruction();
-        handleInstruction();
+    } 
+    
+    if (pendingInterrupts != 0 && interruptEnable) {
+        handleInterrupts(pendingInterrupts);
         return clockCycle;
     }
+
+    handleInstruction(); 
+    handleInstruction(); 
+    return clockCycle;
 }
 
 inline IRAM_ATTR void CPUOpt::handleInstruction() {
@@ -3737,7 +3738,6 @@ void CPUOpt::pushToStack(uint16_t addr) {
 uint16_t CPUOpt::popFromStack() {
     uint8_t* bytes = bus->fetchBlock(stackPointer);
     stackPointer += 2;
-
     return (static_cast<uint16_t>(bytes[1])) << 8 | static_cast<uint16_t>(bytes[0]);
 }
 

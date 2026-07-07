@@ -62,10 +62,19 @@ void Screen::drawLine(uint8_t y, uint8_t* pixels) {
     xQueueSend(lineQueue, &job, portMAX_DELAY);
 }
 
-void Screen::drawLineSync(uint8_t y, uint8_t* pixels) {
+void Screen::drawLineColor(uint8_t y, uint8_t* pixels, uint8_t* colorPallete) {
     LineJob job;
     job.y = y;
     memcpy(job.buffer, pixels, GB_WIDTH);
+    memcpy(job.palleteMap, colorPallete, PALLETE_MAP_SIZE);
+    xQueueSend(lineQueue, &job, portMAX_DELAY);
+}
+
+void Screen::drawLineSync(uint8_t y, uint8_t* pixels, uint8_t* colorPallete) {
+    LineJob job;
+    job.y = y;
+    memcpy(job.buffer, pixels, GB_WIDTH);
+    memcpy(job.palleteMap, colorPallete, PALLETE_MAP_SIZE);
 
     renderDMA(this, job);
 }
@@ -84,7 +93,10 @@ void Screen::displayJob(void* args) {
 
 void Screen::renderDMA(Screen* screen, LineJob job) {
     for (int dx = 0; dx < SCALED_WIDTH; dx++) {
-        screen->lineBuf[dx] = screen->colorArray[job.buffer[screen->xMap[dx]]];
+        uint8_t formatedPixel = (job.buffer[screen->xMap[dx]] & 0x3F) << 1;
+        uint16_t w = (job.palleteMap[formatedPixel | 0x1] << 8) | job.palleteMap[formatedPixel];
+        uint16_t color = ((w & 0x001F) << 11) | ((w & 0x03E0) << 1)  | ((w >> 10) & 0x001F);
+        screen->lineBuf[dx] = color;
     }
 
     int y0 = screen->yMap[job.y];
@@ -122,9 +134,9 @@ void Screen::renderDMA(Screen* screen, LineJob job) {
         screen->dmaBuffer.counter = 0;
     }
 
-    if(y1 == SCALED_HEIGHT) {
+    /*if(y1 == SCALED_HEIGHT) {
         vTaskDelay(1);
-    }
+    }*/
 
 }
 

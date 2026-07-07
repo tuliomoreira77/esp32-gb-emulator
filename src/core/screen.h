@@ -20,7 +20,8 @@ public:
     Screen();
     void init();
     void drawLine(uint8_t y, uint8_t* pixels);
-    void drawLineSync(uint8_t y, uint8_t* pixels);
+    void drawLineColor(uint8_t y, uint8_t* pixels, uint8_t* colorPallete);
+    void drawLineSync(uint8_t y, uint8_t* pixels, uint8_t* colorPallete);
     void requestDrawUI();
     void endDrawUI();
     void drawSaveUI();

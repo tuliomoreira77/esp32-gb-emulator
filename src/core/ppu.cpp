@@ -8,7 +8,7 @@ PPU::PPU(MemoryBus* bus, Screen* screen) {
     getLcdControl();
 }
 
-void PPU::step(uint16_t newCycle) {
+void IRAM_ATTR PPU::step(uint16_t newCycle) {
     cycles += newCycle;
 
     if (!decodedLcdControlRegister[7]) {
@@ -24,6 +24,10 @@ void PPU::step(uint16_t newCycle) {
         getLcdControl();
         updateStat();
 
+        if (actualMode == 0) {
+            bus->stepHdma();
+        }
+
         if (actualMode == 1) {
             renderFrame = frameRendered % FRAME_SKIP_DIVIDER == 0;
             bus->requestVblankInterrupt();
@@ -36,7 +40,7 @@ void PPU::step(uint16_t newCycle) {
 
         if (renderFrame && actualMode == 3) {
             uint8_t* scanLine = renderScanLine();
-            screen->drawLine(lineRendered, scanLine);
+            screen->drawLineColor(lineRendered, scanLine, bus->colorRam);
         }
     }
 
@@ -108,15 +112,14 @@ uint8_t PPU::renderBgLine() {
     uint8_t windowStartTile = windowStart / 8;
     uint8_t windowStartPixel = windowStart % 8;
 
-    buildPalleteMap(BG_W_PALETTE, palleteMap0);
-
     //Create better bg window overlay, now if window is in mid tile bg will overlay it
     for(int i=0; i < windowStartTile + 1; i++) {
         uint8_t tileMapX = (i + xOffset/8) % 32;
         uint16_t tileMapAddr =  (tileMapStart + tileMapX) + (tileMapOffset * 32);
-        uint8_t tileIndex = bus->readVRam(tileMapAddr);
+        uint8_t tileIndex = bus->readVRamBank(tileMapAddr, 0);
+        uint8_t attributes = bus->readVRamBank(tileMapAddr, 1);
         uint16_t tileAddr = tileAddrResolver(tileIndex, tileAddressing);
-        readTileLine(tileAddr, tileLineOffset, 8, &bgBuffer[i*8], palleteMap0);
+        readTileLine(tileAddr, tileLineOffset, 8, &bgBuffer[i*8], 0x00, attributes);
     }
 
     return xOffset;
@@ -143,13 +146,12 @@ uint8_t PPU::renderWindowLine() {
 
     uint8_t initialTile = xOffset / 8;
 
-    buildPalleteMap(BG_W_PALETTE, palleteMap0);
-
     for(int i=0; i < 20 - initialTile; i++) {
         uint16_t tileMapAddr = (tileMapStart + i) + (tileMapOffset * 32);
-        uint8_t tileIndex = bus->readVRam(tileMapAddr);
+        uint8_t tileIndex = bus->readVRamBank(tileMapAddr, 0);
+        uint8_t attributes = bus->readVRamBank(tileMapAddr, 1);
         uint16_t tileAddr = tileAddrResolver(tileIndex, tileAddressing);
-        readTileLine(tileAddr, tileLineOffset, 8, &bgBuffer[(i + initialTile)*8], defaultPallete);
+        readTileLine(tileAddr, tileLineOffset, 8, &bgBuffer[(i + initialTile)*8], 0x00, attributes);
     }
 
     return xOffset;
@@ -164,25 +166,17 @@ void PPU::buildPalleteMap(uint16_t addr, uint8_t* palleteMap) {
 }
 
 void PPU::renderObjLine(uint8_t* bgLine) {
-    buildPalleteMap(OBP0, palleteMap0);
-    buildPalleteMap(OBP0, palleteMap1);
-
     for(int i=0; i<objectsBufferSize; i++) {
         OAMObject obj = objectsBuffer[i];
-        bool priority = calculator->verifyBit(obj.attributes, 7);
-        bool xInverted = calculator->verifyBit(obj.attributes, 5);
-        uint8_t* palleteMap = calculator->verifyBit(obj.attributes, 4) ? palleteMap1 : palleteMap0;
-
-        //implement pallete
         for(uint8_t j=0; j<8; j++) {
             if(obj.xPosition >= 8 && obj.xPosition < 168) {
-                uint8_t pixelIndex = !xInverted ? j : 7-j;
-
-                if(obj.pixels[pixelIndex] !=0) {
-                    if(bgLine[obj.xPosition - 8 + j] != 0 && priority) //debug priority
-                        continue;
-
-                    bgLine[obj.xPosition - 8 + j] = palleteMap[obj.pixels[pixelIndex]]; 
+                if((obj.pixels[j] & 0x3) !=0) {
+                    if(
+                        ((bgLine[obj.xPosition - 8 + j] & 0x03) == 0) || 
+                        ((bgLine[obj.xPosition - 8 + j] >> 7) == 0 && (obj.pixels[j] >> 7) == 0)) {
+                            
+                        bgLine[obj.xPosition - 8 + j] = obj.pixels[j];
+                    }
                 }
             }
         }
@@ -219,7 +213,7 @@ void PPU::oamScan() {
 
 void PPU::oamFetch() {
     for(int i=0; i<objectsBufferSize; i++) {
-        uint16_t tileAddr = 0x00;
+        uint16_t tileAddr;
         uint8_t tileLine = objectsBuffer[i].tineLine;
         
         if(objectsBuffer[i].extendedSize) {
@@ -233,9 +227,7 @@ void PPU::oamFetch() {
             tileAddr = tileAddrResolver(objectsBuffer[i].tileIndex, false);
         }
 
-        bool yInverted = calculator->verifyBit(objectsBuffer[i].attributes, 6);
-        tileLine = !yInverted ? tileLine : 7 - tileLine;
-        readTileLine(tileAddr, tileLine, 8, objectsBuffer[i].pixels, defaultPallete);
+        readTileLine(tileAddr, tileLine, 8, objectsBuffer[i].pixels, 0x20, objectsBuffer[i].attributes);
     }
 }
 
@@ -247,17 +239,26 @@ uint16_t PPU::tileAddrResolver(uint8_t tileIndex, bool isSigned) {
     }
 }
 
-void PPU::readTileLine(uint16_t tileAddr, uint8_t lineIndex, uint8_t size, uint8_t* buffer, uint8_t* pallete) {
+void PPU::readTileLine(uint16_t tileAddr, uint8_t lineIndex, uint8_t size, uint8_t* buffer, uint8_t palleteMask, uint8_t attributes) {
+    uint8_t yInverted = calculator->verifyBit(attributes, 6);
+    uint8_t xInverted = calculator->verifyBit(attributes, 5);
+    uint8_t vRamBank = calculator->verifyBit(attributes, 3);
+
+    lineIndex = !yInverted ? lineIndex : 7 - lineIndex;
+
     uint16_t lineAddr = tileAddr + (lineIndex * 2);
-    uint8_t low  = bus->readVRam(lineAddr);
-    uint8_t high = bus->readVRam(lineAddr + 1);
+    uint8_t low  = bus->readVRamBank(lineAddr, vRamBank);
+    uint8_t high = bus->readVRamBank(lineAddr + 1, vRamBank);
 
     uint8_t mask = 0x80;
+    uint8_t shift = 7;
     for (int p = 0; p < size; p++) {
-        uint8_t hiBit = (high & mask) >> (7 - p); 
-        uint8_t loBit = (low & mask) >> (7 - p);
-        buffer[p] = pallete[(hiBit << 1) | loBit];
+        uint8_t pixelIndex = !xInverted ? p : 7-p;
+        uint8_t hiBit = (high & mask) >> shift; 
+        uint8_t loBit = (low & mask) >> shift;
+        buffer[pixelIndex] = (attributes & 0x80) | palleteMask | ((attributes & 0x07) << 2) | (hiBit << 1) | loBit;
         mask >>= 1;
+        shift -= 1;
     }
 }
 

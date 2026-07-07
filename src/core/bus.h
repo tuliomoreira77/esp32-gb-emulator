@@ -152,6 +152,8 @@ struct TradeControl {
 class MemoryBus {
 public:
     uint16_t debugReg = 0x0000;
+    uint8_t* colorRam;
+    uint32_t bankChangeCounter = 0;
 
 private:
     Calculator calculator;
@@ -168,7 +170,6 @@ private:
     uint8_t* highMemory;
     uint8_t* vramBanks[2];
     uint8_t* workingRamBanks[8];
-    uint8_t* colorRam;
 
     Joypad* joypad = nullptr;
     FileSystem* fileSystem = nullptr;
@@ -183,7 +184,6 @@ private:
     uint8_t wireJoypad();
     void dma(uint8_t addr);
     void hdma(uint8_t value);
-    void stepHdma();
     void changeRomBank(uint8_t bank);
     uint8_t decodeRTC();
 
@@ -205,6 +205,8 @@ public:
     void wireSerial(uint8_t value);
 
     uint8_t executeTrade(uint8_t value);
+
+    void stepHdma();
 
     void incTimerDiv();
 

@@ -70,7 +70,7 @@ void setup() {
 
   fileSystem = new FileSystem();
   motherboard = new Motherboard(joypad, screen, fileSystem, &memMap);
-  Serial.begin(115200);
+  //Serial.begin(115200);
 
   bool fileSystemOk = fileSystem->init("/pokemon_gold.gbc", "/pokemon_gold.sav");
 
@@ -105,11 +105,9 @@ void loop() {
     joypad->saveGame = false;
   }
   
-  unsigned long iTime = millis();
+  //unsigned long iTime = millis();
   for(uint32_t count =0; count < 1000000;) {
     count = count + motherboard->runCycle();
   }
-  Serial.println(millis() - iTime);
-  imprimirStatusMemoria();
-  
+  //Serial.println(millis() - iTime);
 }
