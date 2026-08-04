@@ -22,10 +22,13 @@ uint32_t Motherboard::runCycle() {
         joypad->keyPressed = false;
     }
 
-    uint16_t mCycles = cpu->executeStep();
-    uint16_t globalCycles = mCycles << 2;
+    uint16_t globalCycles = 0;
+    globalCycles += cpu->executeStep();
+    globalCycles += cpu->executeStep();
+
+    globalCycles = globalCycles << 1;
     timer->step(globalCycles);
     ppu->step(globalCycles);
 
-    return mCycles;
+    return globalCycles;
 }

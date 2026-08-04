@@ -25,8 +25,7 @@ MemoryBus::MemoryBus(Joypad* jp, FileSystem* fileSystem, MemoryMap* memoryMap) {
     this->extMemory = memoryMap->extMem - EXTERNAL_RAM_BEGIN;
     this->workingRam0 = memoryMap->workRam0 - WORK_RAM_0_BEGIN;
     this->workingRamPointer = memoryMap->workRam1 - WORK_RAM_N_BEGIN;
-    this->highMemory = memoryMap->highMemory - OAM_BEGIN; //offset addr to not need to calculate this every time
-
+    this->highMemory = memoryMap->highMemory - OAM_BEGIN; 
     this->colorRam = memoryMap->colorRam;
 
     this->bankCache[0].bankPointer = memoryMap->bank1;
@@ -37,15 +36,17 @@ MemoryBus::MemoryBus(Joypad* jp, FileSystem* fileSystem, MemoryMap* memoryMap) {
     this->bankCache[5].bankPointer = memoryMap->bank6;
     this->bankCache[6].bankPointer = memoryMap->bank7;
     this->bankCache[7].bankPointer = memoryMap->bank8;
+
+    this->psRamGameRom = memoryMap->gameRom;
 }
 
 void MemoryBus::insertCartridge() {
-    this->fileSystem->readRom(0, 0x4000, bank0);
+    this->readRom(0, 0x4000, bank0);
     this->bank1 = memoryMap->bank1 - 0x4000;
 
     uint32_t romAddr = 0x4000;
     for(int i=0; i < ROM_BANK_CACHE_SIZE; i++) {
-        this->fileSystem->readRom(romAddr, 0x4000, bankCache[i].bankPointer);
+        this->readRom(romAddr, 0x4000, bankCache[i].bankPointer);
         bankCache[i].bankNumber = i + 1;
         romAddr += 0x4000;
     }
@@ -85,6 +86,12 @@ uint8_t IRAM_ATTR MemoryBus::readByte(uint16_t addr) {
         if (addr <= WORK_RAM_N_END) {
             return workingRamPointer[addr];
         }
+        if (addr <= ECHO_RAM_0_END) {
+            return workingRam0[addr - 0x2000];
+        }
+        if (addr <= ECHO_RAM_1_END) {
+            return workingRamPointer[addr - 0x2000];
+        }
     }
     switch(addr) {
         case JOYPAD_REG:
@@ -92,7 +99,7 @@ uint8_t IRAM_ATTR MemoryBus::readByte(uint16_t addr) {
         case BGPD:
             return colorRam[highMemory[BGPI] & 0x3F];
         case OBPD:
-            return colorRam[highMemory[OBPI] & 0x3F + 64];
+            return colorRam[(highMemory[OBPI] & 0x3F) + 64];
         default:
             return highMemory[addr];
     }
@@ -117,6 +124,12 @@ uint8_t* IRAM_ATTR MemoryBus::fetchBlock(uint16_t addr) {
         }
         if (addr <= WORK_RAM_N_END) {
             return &workingRamPointer[addr];
+        }
+        if (addr <= ECHO_RAM_0_END) {
+            return &workingRam0[addr - 0x2000];
+        }
+        if (addr <= ECHO_RAM_1_END) {
+            return &workingRamPointer[addr - 0x2000];
         }
     }
     return &highMemory[addr];
@@ -153,6 +166,15 @@ void IRAM_ATTR MemoryBus::writeByte(uint16_t addr, uint8_t value) {
         
         if (addr <= WORK_RAM_N_END) {
             workingRamPointer[addr] = value;
+            return;
+        }
+
+        if (addr <= ECHO_RAM_0_END) {
+            workingRam0[addr - 0x2000] = value;
+            return;
+        }
+        if (addr <= ECHO_RAM_1_END) {
+            workingRamPointer[addr - 0x2000] = value;
             return;
         }
 
@@ -251,10 +273,14 @@ void IRAM_ATTR MemoryBus::changeRomBank(uint8_t bank) {
         }
     }
 
-    this->fileSystem->readRom(mbc->romAddr, 0x4000, leastUsedBank->bankPointer);
+    this->readRom(mbc->romAddr, 0x4000, leastUsedBank->bankPointer);
     leastUsedBank->bankNumber = bank;
     leastUsedBank->lastUsed = ++accessCounter;
     this->bank1 = leastUsedBank->bankPointer - 0x4000;
+}
+
+void MemoryBus::readRom(uint32_t offset, size_t bufferSize, uint8_t* buffer) {
+    memcpy(buffer, &psRamGameRom[offset], bufferSize);
 }
 
 uint8_t MemoryBus::decodeRTC() {
@@ -354,41 +380,52 @@ void MemoryBus::hdma(uint8_t value) {
     uint8_t mode = calculator.verifyBit(value, 7);
     uint16_t source = (highMemory[HDMA1] << 8 | highMemory[HDMA2]) & 0xFFF0;
     uint16_t dest = ((highMemory[HDMA3] << 8 | highMemory[HDMA4]) & 0x1FF0) + VRAM_BEGIN;
-    uint16_t size = ((value & 0x7F) + 1) * 0x10;
+    uint8_t blocks = (value & 0x7F) + 1;
+    uint16_t size = blocks * 0x10;
 
-    if (mode == 0 && highMemory[HDMA5] != 0xFF) {
-        highMemory[HDMA5] = 0xFF;
+    if (mode == 0 && (highMemory[HDMA5] & 0x80) == 0) {
+        highMemory[HDMA5] = highMemory[HDMA5] | 0x80;
         return;
     }
     if (mode == 0) {
-        for(int i=0; i<size; i++) {
-            vramPointer[dest] = readByte(source);
-            source += 1;
-            dest += 1;
+        for(int i=0; i<size; i+=0x10) {
+            memcpy(&vramPointer[dest], fetchBlock(source), 0x10);
+            source += 0x10;
+            dest += 0x10;
         }
         highMemory[HDMA5] = 0xFF;
+        updateHdmaReg(source, dest);
     } else {
-        highMemory[HDMA5] = size;
+        highMemory[HDMA5] = blocks;
         hdmaDestAddr = dest;
         hdmaSourceAddr = source;
     }
 }
 
 void MemoryBus::stepHdma() {
-    if (highMemory[HDMA5] == 0xFF) {
+    if ((highMemory[HDMA5] & 0x80) != 0x00) {
         return;
     }
 
-    for(int i=0; i<0x10; i++) {
-        vramPointer[hdmaDestAddr] = readByte(hdmaSourceAddr);
-        hdmaDestAddr += 1;
-        hdmaSourceAddr += 1;
-    }
-    highMemory[HDMA5] -= 0x10;
+    memcpy(&vramPointer[hdmaDestAddr], fetchBlock(hdmaSourceAddr), 0x10);
+    hdmaDestAddr += 0x10;
+    hdmaSourceAddr += 0x10;
 
-    if (highMemory[HDMA5] == 0) {
+    updateHdmaReg(hdmaSourceAddr, hdmaDestAddr);
+
+    uint8_t blockRemaining = highMemory[HDMA5] & 0x7F;
+    if (blockRemaining == 0) {
         highMemory[HDMA5] = 0xFF;
+    } else {
+        highMemory[HDMA5] = blockRemaining - 1;
     }
+}
+
+void MemoryBus::updateHdmaReg(uint16_t source, uint16_t dest) {
+    highMemory[HDMA1] = (source >> 8) & 0xFF;
+    highMemory[HDMA2] = source & 0xFF;
+    highMemory[HDMA3] = (dest >> 8) & 0xFF;
+    highMemory[HDMA4] = dest & 0xFF;
 }
 
 void MemoryBus::wireSerial(uint8_t value) {

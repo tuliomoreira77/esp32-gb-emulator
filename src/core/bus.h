@@ -28,6 +28,10 @@ constexpr uint16_t WORK_RAM_0_BEGIN = 0xC000;
 constexpr uint16_t WORK_RAM_0_END = 0xCFFF;
 constexpr uint16_t WORK_RAM_N_BEGIN = 0xD000;
 constexpr uint16_t WORK_RAM_N_END = 0xDFFF;
+constexpr uint16_t ECHO_RAM_0_BEGIN = 0xE000;
+constexpr uint16_t ECHO_RAM_0_END = 0xEFFF;
+constexpr uint16_t ECHO_RAM_1_BEGIN = 0xF000;
+constexpr uint16_t ECHO_RAM_1_END = 0xFDFF;
 constexpr uint16_t OAM_BEGIN = 0xFE00;
 constexpr uint16_t OAM_END   = 0xFE9F;
 constexpr uint16_t HIGH_RAM_BEGIN = 0xFF00;
@@ -43,6 +47,8 @@ constexpr uint16_t DMA         = 0xFF46;
 
 constexpr uint16_t SB = 0xFF01;
 constexpr uint16_t SC = 0xFF02;
+
+constexpr uint16_t SPD = 0xFF4D;
 
 constexpr uint16_t INTERRUPT_FLAG = 0xFF0F;
 constexpr uint16_t INTERRUPT_ENABLE_REGISTER = 0xFFFF;
@@ -170,6 +176,7 @@ private:
     uint8_t* highMemory;
     uint8_t* vramBanks[2];
     uint8_t* workingRamBanks[8];
+    uint8_t* psRamGameRom;
 
     Joypad* joypad = nullptr;
     FileSystem* fileSystem = nullptr;
@@ -184,6 +191,7 @@ private:
     uint8_t wireJoypad();
     void dma(uint8_t addr);
     void hdma(uint8_t value);
+    void updateHdmaReg(uint16_t source, uint16_t dest);
     void changeRomBank(uint8_t bank);
     uint8_t decodeRTC();
 
@@ -197,6 +205,7 @@ public:
     uint8_t readVRam(uint16_t addr);
     uint8_t readHighRam(uint16_t addr);
     uint8_t readVRamBank(uint16_t addr, uint8_t bank);
+    void readRom(uint32_t offset, size_t bufferSize, uint8_t* buffer);
 
     void writeByte(uint16_t addr, uint8_t value);
 

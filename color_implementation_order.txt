@@ -1,5 +1,0 @@
-implement VBK and WBK bank switch (WBK banck switch talvez não precisa)
-implement read pixel universal with x_inverted and Y-inverted
-implemente HDMA -< talvez não precise
-implemente paletes
-implemente double speed 

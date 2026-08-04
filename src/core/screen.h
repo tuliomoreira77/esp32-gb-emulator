@@ -5,17 +5,34 @@
 #include "freertos/task.h"
 #include "freertos/queue.h"
 
-static constexpr int GB_WIDTH  = 160;
-static constexpr int GB_HEIGHT = 144;
+enum UIAction {
+    NO_ACTION,
+    LOAD_GAME,
+    DUMP_SAVE
+};
 
-static constexpr int Y_OFFSET = 0;
+struct UIElement {
+    const char* text;
+    bool selected;
+    UIAction action;
+};
 
 class Screen {
 public:
+    static constexpr int GB_WIDTH  = 160;
+    static constexpr int GB_HEIGHT = 144;
+    static constexpr int Y_OFFSET = 0;
+
     static constexpr int PALLETE_MAP_SIZE = 128;
     static constexpr int SCALED_WIDTH = 240;
     static constexpr int SCALED_HEIGHT = 216;
-    static constexpr int BUFFER_SIZE_IN_LINES = 20;
+    static constexpr int BUFFER_SIZE_IN_LINES = 18;
+
+    // UI Constants
+    static constexpr int POS_X = 10;   
+    static constexpr int POS_Y = 30; 
+    static constexpr int LINE_SIZE = 35; 
+    static constexpr int UI_WIDTH = 220;
 
     Screen();
     void init();
@@ -25,6 +42,7 @@ public:
     void requestDrawUI();
     void endDrawUI();
     void drawSaveUI();
+    void drawGenericUI(UIElement elements[], int size);
 
     struct LineJob {
         uint8_t y;
@@ -33,6 +51,7 @@ public:
     };
 
     struct DMABuffer {
+        uint8_t cY;
         uint8_t y0;
         uint8_t counter;
         uint8_t size = BUFFER_SIZE_IN_LINES;
@@ -45,18 +64,18 @@ public:
 private:
     TFT_eSPI tft;
     uint16_t colorArray[4];
-    QueueHandle_t lineQueue = xQueueCreate(50, sizeof(LineJob));
+    QueueHandle_t lineQueue = xQueueCreate(18, sizeof(LineJob));
     bool isDrawingUI = false;
 
     int xOff = 0;
     int yOff = 0;
-    uint8_t xMap[SCALED_WIDTH];
-    uint8_t yMap[GB_HEIGHT + 1];
 
-    uint16_t lineBuf[SCALED_WIDTH];
     size_t bufferSize = sizeof(uint16_t) * SCALED_WIDTH * BUFFER_SIZE_IN_LINES;
     DMABuffer dmaBuffer;
+
+    static uint16_t getPixel(uint8_t encodedPixel, uint8_t* palleteMap);
+    static uint16_t blendColors(uint16_t color1, uint16_t color2);
+
     static void displayJob(void* args);
-    static void displayJobNoDMA(void* args);
     static void renderDMA(Screen* screen, LineJob job);
 };

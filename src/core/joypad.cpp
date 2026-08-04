@@ -1,13 +1,14 @@
 #include "joypad.h"
 
 namespace {
-    static constexpr int PIN_BUTTON_A      = 27;
-    static constexpr int PIN_BUTTON_B      = 32;
-    static constexpr int PIN_BUTTON_START  = 33;
-    static constexpr int PIN_DPAD_UP       = 35;
-    static constexpr int PIN_DPAD_DOWN     = 26;
-    static constexpr int PIN_DPAD_LEFT     = 34;
-    static constexpr int PIN_DPAD_RIGHT    = 25;
+    static constexpr int PIN_BUTTON_A      = 7;
+    static constexpr int PIN_BUTTON_B      = 4;
+    static constexpr int PIN_BUTTON_START  = 5;
+    static constexpr int PIN_BUTTON_SELECT = 6;
+    static constexpr int PIN_DPAD_UP       = 16;
+    static constexpr int PIN_DPAD_DOWN     = 17;
+    static constexpr int PIN_DPAD_LEFT     = 18;
+    static constexpr int PIN_DPAD_RIGHT    = 15;
 }
 
 uint8_t IRAM_ATTR Joypad::getDPad() {
@@ -19,13 +20,14 @@ uint8_t IRAM_ATTR Joypad::getButtons() {
 }
 
 void Joypad::init() {
-    pinMode(PIN_BUTTON_A, INPUT);
-    pinMode(PIN_BUTTON_B, INPUT);
-    pinMode(PIN_BUTTON_START, INPUT);
-    pinMode(PIN_DPAD_UP, INPUT);
-    pinMode(PIN_DPAD_DOWN, INPUT);
-    pinMode(PIN_DPAD_LEFT, INPUT);
-    pinMode(PIN_DPAD_RIGHT, INPUT);
+    pinMode(PIN_BUTTON_A, INPUT_PULLDOWN);
+    pinMode(PIN_BUTTON_B, INPUT_PULLDOWN);
+    pinMode(PIN_BUTTON_START, INPUT_PULLDOWN);
+    pinMode(PIN_BUTTON_SELECT, INPUT_PULLDOWN);
+    pinMode(PIN_DPAD_UP, INPUT_PULLDOWN);
+    pinMode(PIN_DPAD_DOWN, INPUT_PULLDOWN);
+    pinMode(PIN_DPAD_LEFT, INPUT_PULLDOWN);
+    pinMode(PIN_DPAD_RIGHT, INPUT_PULLDOWN);
 
     xTaskCreatePinnedToCore(joypadJob, "buttons", 1024, this, 3, nullptr, 0);
 }
@@ -37,6 +39,7 @@ void Joypad::joypadJob(void* args) {
 
     for(;;) {
         int buttonStart = digitalRead(PIN_BUTTON_START);
+        int buttonSelect = digitalRead(PIN_BUTTON_SELECT);
         int buttonA = digitalRead(PIN_BUTTON_A);
         int buttonB = digitalRead(PIN_BUTTON_B);
         int buttonUp = digitalRead(PIN_DPAD_UP);
@@ -49,6 +52,10 @@ void Joypad::joypadJob(void* args) {
 
         if (buttonStart == HIGH) {
             joypad->rawButtons &= 0b0111;
+            joypad->keyPressed = true;
+        }
+        if (buttonSelect == HIGH) {
+            joypad->rawButtons &= 0b1011;
             joypad->keyPressed = true;
         }
         if (buttonA == HIGH) {

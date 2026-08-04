@@ -11,7 +11,7 @@ void Screen::init() {
     tft.init();
     tft.initDMA(true);
     tft.setSwapBytes(true);
-    tft.setRotation(0); 
+    tft.setRotation(1); 
     tft.fillScreen(TFT_BLACK);
 
     int tw = tft.width();
@@ -23,14 +23,8 @@ void Screen::init() {
     if (xOff < 0) xOff = 0;
     if (yOff < 0) yOff = 0;
 
-    for (int dx = 0; dx < SCALED_WIDTH; dx++) {
-        xMap[dx] = (dx * GB_WIDTH) / SCALED_WIDTH;
-    }
-    for (int y = 0; y <= GB_HEIGHT; y++) {
-        yMap[y] = (y * SCALED_HEIGHT) / GB_HEIGHT;
-    }
-
     dmaBuffer.counter=0;
+    dmaBuffer.cY=0;
     dmaBuffer.y0=0;
     dmaBuffer.bufferA = (uint16_t*) heap_caps_malloc(bufferSize, MALLOC_CAP_DMA);
     dmaBuffer.bufferB = (uint16_t*) heap_caps_malloc(bufferSize, MALLOC_CAP_DMA);
@@ -45,6 +39,25 @@ void Screen::requestDrawUI() {
 
 void Screen::endDrawUI() {
     isDrawingUI = false;
+}
+
+void Screen::drawGenericUI(UIElement elements[], int size) {
+    tft.setTextSize(1);
+    tft.setTextDatum(TL_DATUM); 
+
+    for(int i=0; i < size; i++) {
+        int pos_y = POS_Y + (i * LINE_SIZE);
+
+        if (elements[i].selected) {
+            tft.fillRect(POS_X, pos_y, UI_WIDTH, LINE_SIZE - 4, TFT_WHITE);
+            tft.setTextColor(TFT_BLACK, TFT_WHITE);
+        } else {
+            tft.fillRect(POS_X, pos_y, UI_WIDTH, LINE_SIZE - 4, TFT_BLACK);
+            tft.setTextColor(TFT_WHITE, TFT_BLACK);
+        }
+
+        tft.drawString(elements[i].text, POS_X + 10, pos_y + 6);
+    }
 }
 
 void Screen::drawSaveUI() {
@@ -85,38 +98,59 @@ void Screen::displayJob(void* args) {
     LineJob job;
 
     for (;;) {
-        if (xQueueReceive(screen->lineQueue, &job, portMAX_DELAY) && !screen->isDrawingUI) {
-            renderDMA(screen, job);
+        if(!screen->isDrawingUI) {
+            if (xQueueReceive(screen->lineQueue, &job, portMAX_DELAY)) {
+                renderDMA(screen, job);
+            }
+        } else {
+            vTaskDelay(1);
         }
     }
 }
 
 void Screen::renderDMA(Screen* screen, LineJob job) {
-    for (int dx = 0; dx < SCALED_WIDTH; dx++) {
-        uint8_t formatedPixel = (job.buffer[screen->xMap[dx]] & 0x3F) << 1;
-        uint16_t w = (job.palleteMap[formatedPixel | 0x1] << 8) | job.palleteMap[formatedPixel];
-        uint16_t color = ((w & 0x001F) << 11) | ((w & 0x03E0) << 1)  | ((w >> 10) & 0x001F);
-        screen->lineBuf[dx] = color;
+    if(job.y == 0) {
+        screen->dmaBuffer.cY = 0;
+        screen->dmaBuffer.counter = 0;
     }
 
-    int y0 = screen->yMap[job.y];
-    int y1 = screen->yMap[job.y + 1];
-    int linesToDraw = y1 - y0;
-
     if(screen->dmaBuffer.counter == 0) {
-        screen->dmaBuffer.y0 = y0;
+        screen->dmaBuffer.y0 = screen->dmaBuffer.cY;
         uint16_t* writerBuffer = screen->dmaBuffer.pingPong == false ? screen->dmaBuffer.bufferA : screen->dmaBuffer.bufferB;
         screen->dmaBuffer.cursor = writerBuffer;
     }
 
-    for (int i = 0; i < linesToDraw; i++) {
-        memcpy(screen->dmaBuffer.cursor, screen->lineBuf, sizeof(uint16_t) * SCALED_WIDTH);
+    bool scale = job.y & 0x1;
+    for (int x = 0, dx = 0; x < GB_WIDTH; x += 2, dx += 3) {
+        uint16_t color1 = Screen::getPixel(job.buffer[x], job.palleteMap);
+        uint16_t color2 = Screen::getPixel(job.buffer[x+1], job.palleteMap);
 
-        screen->dmaBuffer.cursor = screen->dmaBuffer.cursor + SCALED_WIDTH;
-        screen->dmaBuffer.counter = screen->dmaBuffer.counter + 1;
+        if(scale) {
+            uint16_t* lastLine = screen->dmaBuffer.cursor - SCALED_WIDTH;
+            uint16_t* scaleLine = screen->dmaBuffer.cursor;
+            uint16_t* line = screen->dmaBuffer.cursor + SCALED_WIDTH;
+
+            line[dx] = color1;
+            line[dx + 1] = Screen::blendColors(color1, color2);
+            line[dx + 2] = color2;
+
+            scaleLine[dx] = Screen::blendColors(lastLine[dx], line[dx]);
+            scaleLine[dx + 1] = Screen::blendColors(lastLine[dx + 1], line[dx + 1]);
+            scaleLine[dx + 2] = Screen::blendColors(lastLine[dx + 2], line[dx + 2]);
+        } else {
+            uint16_t* line = screen->dmaBuffer.cursor;
+            line[dx] = color1;
+            line[dx + 1] = Screen::blendColors(color1, color2);
+            line[dx + 2] = color2;
+        }
     }
 
-    if(screen->dmaBuffer.counter >= BUFFER_SIZE_IN_LINES - 1 || y1 == SCALED_HEIGHT) {
+    int multiplier = scale ? 2 : 1;
+    screen->dmaBuffer.cursor += SCALED_WIDTH * multiplier;
+    screen->dmaBuffer.counter += multiplier;
+    screen->dmaBuffer.cY += multiplier;
+
+    if(screen->dmaBuffer.counter == BUFFER_SIZE_IN_LINES) {
         uint16_t* readerBuffer = screen->dmaBuffer.pingPong == false ? screen->dmaBuffer.bufferA : screen->dmaBuffer.bufferB;
         screen->dmaBuffer.pingPong = !screen->dmaBuffer.pingPong;
 
@@ -131,44 +165,25 @@ void Screen::renderDMA(Screen* screen, LineJob job) {
             readerBuffer,
             SCALED_WIDTH * screen->dmaBuffer.counter
         );
+
         screen->dmaBuffer.counter = 0;
+        if(screen->dmaBuffer.cY == SCALED_HEIGHT) {
+            screen->dmaBuffer.cY = 0;
+        }
     }
 
-    /*if(y1 == SCALED_HEIGHT) {
-        vTaskDelay(1);
-    }*/
+    //if(y1 == SCALED_HEIGHT) {
+        //vTaskDelay(1);
+    //}
 
 }
 
+uint16_t Screen::getPixel(uint8_t encodedPixel, uint8_t* palleteMap) {
+    uint8_t formatedPixel = (encodedPixel & 0x3F) << 1;
+    uint16_t w = (palleteMap[formatedPixel | 0x1] << 8) | palleteMap[formatedPixel];
+    return ((w & 0x001F) << 11) | ((w & 0x03E0) << 1)  | ((w >> 10) & 0x001F);
+}
 
-void Screen::displayJobNoDMA(void* args) {
-    Screen* screen = static_cast<Screen*>(args);
-    LineJob job;
-
-    for (;;) {
-        if (xQueueReceive(screen->lineQueue, &job, portMAX_DELAY)) {
-            for (int dx = 0; dx < SCALED_WIDTH; dx++) {
-                screen->lineBuf[dx] = screen->colorArray[job.buffer[screen->xMap[dx]]];
-            }
-
-            int y0 = screen->yMap[job.y];
-            int y1 = screen->yMap[job.y + 1];
-            int linesToDraw = y1 - y0;
-
-            screen->tft.dmaWait();
-            screen->tft.setAddrWindow(
-                screen->xOff,
-                screen->yOff + y0,
-                SCALED_WIDTH,
-                linesToDraw
-            );
-            for (int i = 0; i < linesToDraw; i++) {
-                screen->tft.pushPixels(
-                    screen->lineBuf,
-                    SCALED_WIDTH
-                );
-            }
-            screen->tft.endWrite();
-        }
-    }
+uint16_t Screen::blendColors(uint16_t color1, uint16_t color2) {
+    return (((color1 ^ color2) & 0xF7DE) >> 1) + (color1 & color2);
 }

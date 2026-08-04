@@ -13,28 +13,22 @@ Joypad* joypad = nullptr;
 Screen* screen = nullptr;
 FileSystem* fileSystem = nullptr;
 
-void imprimirStatusMemoria() {
-    size_t livreTotal = heap_caps_get_free_size(MALLOC_CAP_8BIT);
-    size_t maiorBloco = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
-    
-    // Cálculo simples de fragmentação:
-    // Quanto menor a porcentagem de "maiorBloco" em relação ao "livreTotal",
-    // mais fragmentada está a memória.
-    float fragmentacao = 0.0;
-    if (livreTotal > 0) {
-        fragmentacao = (1.0 - ((float)maiorBloco / (float)livreTotal)) * 100.0;
-    }
 
-    Serial.println("--- Status da Memória ESP32 ---");
-    Serial.printf("Memória Livre Total: %u bytes\n", livreTotal);
-    Serial.printf("Maior Bloco Contíguo: %u bytes\n", maiorBloco);
-    Serial.printf("Fragmentação Estimada: %.2f%%\n", fragmentacao);
-    Serial.println("-------------------------------");
-}
+//BASIC UI ELEMENTS
+const static int UI_LINES = 4;
+struct UIState {
+  UIElement* elements;
+  uint8_t lastDPadState;
+  uint8_t lastButtonState;
+  int cursor;
+};
+void initialUILoop();
+void buildUIElements(UIElement elements[], FileDescriptor files[], int size);
+void handleDPad(UIState* state);
 
 
 void setup() {
-  //Need to break patterns to alloc memory first to prevent heap fragmentation 
+  //alloc memory first to prevent heap fragmentation 
   memMap.extMem = (uint8_t*) heap_caps_malloc(0x8000, MALLOC_CAP_8BIT);
   memMap.bank0 = (uint8_t*) heap_caps_malloc(0x8000, MALLOC_CAP_8BIT);
   memMap.bank1 = &memMap.bank0[0x4000];
@@ -60,8 +54,9 @@ void setup() {
   memMap.bank5 = (uint8_t*) heap_caps_malloc(0x4000, MALLOC_CAP_8BIT);
   memMap.bank6 = (uint8_t*) heap_caps_malloc(0x4000, MALLOC_CAP_8BIT);
   memMap.bank7 = (uint8_t*) heap_caps_malloc(0x4000, MALLOC_CAP_8BIT);
-  //memMap.bank8 = (uint8_t*) heap_caps_malloc(0x4000, MALLOC_CAP_8BIT);
+  memMap.gameRom  = (uint8_t*) heap_caps_malloc(2 * 1024 * 1024, MALLOC_CAP_SPIRAM);
 
+  
   screen = new Screen();
   screen->init();
 
@@ -70,14 +65,18 @@ void setup() {
 
   fileSystem = new FileSystem();
   motherboard = new Motherboard(joypad, screen, fileSystem, &memMap);
-  //Serial.begin(115200);
-
-  bool fileSystemOk = fileSystem->init("/pokemon_gold.gbc", "/pokemon_gold.sav");
+  
+  Serial.begin(115200);
+  
+  bool fileSystemOk = fileSystem->init();
 
   if(!fileSystemOk) {
     while (true) { delay(1000); }
   }
 
+  initialUILoop();
+
+  fileSystem->initRom("/pokemon_pcrystal.gbc", "/pokemon_pcrystal.sav");
   memset(memMap.extMem, 0, 0x8000);
   fileSystem->readSave(0x8000, memMap.extMem);
 
@@ -87,12 +86,11 @@ void setup() {
   tv.tv_usec = 0;
   settimeofday(&tv, NULL);
 
+  fileSystem->readRom(0, 2 * 1024 * 1024, memMap.gameRom);
   motherboard->insertCartridge();
-  
 }
 
 void loop() {
-  //motherboard->runCycle();
 
   if (joypad->saveGame) {
     screen->requestDrawUI();
@@ -106,8 +104,71 @@ void loop() {
   }
   
   //unsigned long iTime = millis();
-  for(uint32_t count =0; count < 1000000;) {
+  for(uint32_t count =0; count < 4000000;) {
     count = count + motherboard->runCycle();
   }
   //Serial.println(millis() - iTime);
+
 }
+
+void initialUILoop() {
+  FileDescriptor files[UI_LINES];
+  UIElement elements[UI_LINES];
+  int size = fileSystem->listFolder(files, UI_LINES, 0);
+
+  buildUIElements(elements, files, size);
+
+  UIState state = {
+    elements,
+    0b1111,
+    0b1111,
+    0
+  };
+
+  screen->requestDrawUI();
+  while (true) {
+    elements[state.cursor].selected = false;
+    handleDPad(&state);
+    elements[state.cursor].selected = true;
+
+    if(joypad->getButtons() != state.lastButtonState) {
+      state.lastButtonState = joypad->getButtons();
+      if((state.lastButtonState & 0b0001) == 0) {
+        screen->endDrawUI();
+        break;
+      }
+    }
+    
+    screen->drawGenericUI(elements, UI_LINES);
+    vTaskDelay(pdMS_TO_TICKS(100));
+  }
+}
+
+void handleDPad(UIState* state) {
+  if(joypad->getDPad() != state->lastDPadState) {
+    state->lastDPadState = joypad->getDPad();
+    if((state->lastDPadState & 0b0100) == 0 && state->cursor > 0) {
+      state->cursor -= 1;
+    } else if((state->lastDPadState & 0b1000) == 0 && state->cursor < UI_LINES-1) {
+      state->cursor += 1;
+    }
+  }
+}
+
+void buildUIElements(UIElement elements[], FileDescriptor files[], int size) {
+  for(int i=0; i < size; i++) {
+    elements[i].selected = false;
+    elements[i].text = files[i].name;
+    switch (files[i].ext)
+    {
+      case ROM:
+        elements[i].action = LOAD_GAME;
+        break;
+      
+      default:
+        elements[i].action = NO_ACTION;
+        break;
+    }
+  }
+}
+

@@ -31,6 +31,7 @@ void IRAM_ATTR PPU::step(uint16_t newCycle) {
         if (actualMode == 1) {
             renderFrame = frameRendered % FRAME_SKIP_DIVIDER == 0;
             bus->requestVblankInterrupt();
+            windowLineRendered = 0;
         }
 
         if (renderFrame && actualMode == 2) {
@@ -127,19 +128,21 @@ uint8_t PPU::renderBgLine() {
 
 uint8_t PPU::renderWindowLine() {
     uint8_t yOffset = bus->readHighRam(W_SCROLL_Y);
+    int xOffset = bus->readHighRam(W_SCROLL_X) - 7;
 
-    if (yOffset > lineRendered) {
+    if (yOffset > lineRendered || xOffset > 166) {
         return 160;
     }
 
-    int xOffset = bus->readHighRam(W_SCROLL_X) - 7;
+    
     if (xOffset < 0) {
         xOffset = 0;
     }
 
-    uint8_t viewportLine = lineRendered - yOffset;
+    uint8_t viewportLine = windowLineRendered;
     uint8_t tileLineOffset = viewportLine % 8;
     uint8_t tileMapOffset = viewportLine / 8;
+    windowLineRendered += 1;
 
     boolean tileAddressing = !decodedLcdControlRegister[4];
     uint16_t tileMapStart = decodedLcdControlRegister[6] ? TILE_MAP_2_START : TILE_MAP_1_START;

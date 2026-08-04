@@ -25,4 +25,6 @@ struct MemoryMap {
     uint8_t* bank7;
     uint8_t* bank8;
     uint8_t* colorRam;
+
+    uint8_t* gameRom;
 };

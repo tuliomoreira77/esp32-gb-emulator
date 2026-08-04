@@ -24,14 +24,13 @@ CPUOpt::CPUOpt(MemoryBus *bus) {
     bus->writeByte(INTERRUPT_FLAG, 0xe1);
     bus->writeByte(LCD_CONTROL, 0x91);
     bus->writeByte(LCD_STAT, 0x81);
+    bus->writeByte(SPD, 0x80);
 }
 
 uint16_t IRAM_ATTR CPUOpt::executeStep() {
     clockCycle = 0;
-    uint8_t pendingInterrupts = 0;
-    if (interruptEnable || isHalt) {
-        pendingInterrupts = bus->verifyPendingInterrupts();
-    }
+    uint8_t pendingInterrupts = bus->verifyPendingInterrupts();
+
     if (isHalt) {
         if (pendingInterrupts != 0) {
             isHalt = false;
@@ -52,6 +51,7 @@ uint16_t IRAM_ATTR CPUOpt::executeStep() {
 
     handleInstruction(); 
     handleInstruction(); 
+  
     return clockCycle;
 }
 
